@@ -9,10 +9,14 @@ namespace TradingEngine.Domain.Entities
     public class OrderDomain : AggregateRoot
     {
         public Guid UserId { get; private set; }
-        public Symbol Symbol { get; private set; } = null!;
+        public Guid SymbolId { get; private set; }
+
+        public virtual SymbolDomain Symbol { get; } = null!;
         public Price Price { get; private set; } = null!;
+
         public Quantity Quantity { get; private set; } = null!;
         public Quantity RemainingQuantity { get; private set; } = null!;
+        public decimal FilledQuantity => Quantity.Value - RemainingQuantity.Value;
 
         public OrderSide Side { get; private set; }
         public OrderStatus Status { get; private set; }
@@ -21,7 +25,7 @@ namespace TradingEngine.Domain.Entities
 
         public static OrderDomain Create(
             Guid userId,
-            Symbol symbol,
+            Guid symbolId,
             Price price,
             Quantity quantity,
             OrderSide side)
@@ -30,7 +34,7 @@ namespace TradingEngine.Domain.Entities
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Symbol = symbol,
+                SymbolId = symbolId,
                 Price = price,
                 Quantity = quantity,
                 RemainingQuantity = quantity,
@@ -40,7 +44,7 @@ namespace TradingEngine.Domain.Entities
             };
 
             order.RaiseDomainEvent(
-                new OrderPlacedEvent(order.Id, userId, symbol, price, quantity, side));
+                new OrderPlacedEvent(order.Id, userId, symbolId, price, quantity, side));
 
             return order;
         }
@@ -60,7 +64,7 @@ namespace TradingEngine.Domain.Entities
                     new OrderFilledEvent(
                         Id,
                         UserId,
-                        Symbol,
+                        SymbolId,
                         Quantity));
             }
             else
@@ -85,6 +89,22 @@ namespace TradingEngine.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
 
             RaiseDomainEvent(new OrderCancelledEvent(Id));
+        }
+
+        public void ApplyStateChange(long reportedFilledQuantity, OrderStatus targetStatus)
+        {
+            var alreadyFilled = (long)(Quantity.Value - RemainingQuantity.Value);
+            var newlyFilled = reportedFilledQuantity - alreadyFilled;
+
+            if (newlyFilled > 0)
+                Fill(new Quantity(newlyFilled));
+
+            if (Status == targetStatus) return;
+
+            if (targetStatus == OrderStatus.Cancelled)
+                Cancel();
+            else if (targetStatus == OrderStatus.Filled && RemainingQuantity.Value == 0)
+                Fill(new Quantity(0));
         }
     }
 }

@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Models;
 using TradingEngine.MatchingEngine.Models.Notifications;
 
@@ -52,7 +52,7 @@ public class MarketDataExecutionResultHandler : IExecutionResultHandler
                 {
                     var notification = new OrderStatusNotification(
                         stateChange.OrderId,
-                        stateChange.Status.ToString(),
+                        stateChange.Status,
                         stateChange.FilledQuantity,
                         stateChange.RemainingQuantity);
 

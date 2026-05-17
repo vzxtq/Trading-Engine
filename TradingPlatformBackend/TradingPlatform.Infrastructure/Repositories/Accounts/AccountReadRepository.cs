@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TradingEngine.Application.Features.Accounts.Dtos;
 using TradingEngine.Application.Interfaces.Accounts;
 using TradingEngine.Infrastructure.Persistence;

@@ -2,7 +2,7 @@ using System.Linq;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Commands;
 using TradingEngine.MatchingEngine.Models;
 using TradingEngine.Domain.ValueObjects;
@@ -21,7 +21,7 @@ internal sealed record MatchingEngineShard(
 /// <summary>
 /// Orchestrates sharded, per-symbol workers. Symbols are deterministically mapped to shards by hash.
 /// </summary>
-public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapshotProvider, IAsyncDisposable
+public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapshotProvider, IMatchingEngineRunner, IAsyncDisposable
 {
     private readonly MatchingEngineShard[] _shards;
     private readonly MatchingEngineOptions _options;

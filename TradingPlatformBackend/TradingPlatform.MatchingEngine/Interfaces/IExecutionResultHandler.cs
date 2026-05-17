@@ -1,6 +1,6 @@
 using TradingEngine.MatchingEngine.Models;
 
-namespace TradingEngine.MatchingEngine.Abstractions
+namespace TradingEngine.MatchingEngine.Interfaces
 {
     public interface IExecutionResultHandler
     {

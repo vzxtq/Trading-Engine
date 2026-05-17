@@ -22,7 +22,7 @@ public sealed class PositionRepository : IPositionRepository
     public async Task<PositionDomain?> GetUserPositionForSymbolAsync(Guid userId, string symbol, CancellationToken cancellationToken)
     {
         return await _dbContext.Positions
-            .FirstOrDefaultAsync(p => p.UserId == userId && p.Symbol.Value == symbol, cancellationToken);
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.SymbolValue.Value == symbol, cancellationToken);
     }
 
     public async Task UpdateAsync(PositionDomain position, CancellationToken cancellationToken)

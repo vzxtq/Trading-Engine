@@ -8,7 +8,7 @@ using TradingEngine.Api.Common;
 using TradingEngine.Api.Hubs;
 using TradingEngine.Api.Services;
 using TradingEngine.Application.Options;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngineApi.Validators;
 
 namespace TradingEngine.Api
@@ -20,9 +20,9 @@ namespace TradingEngine.Api
             IConfiguration configuration,
             IWebHostEnvironment environment)
         {
-            var jwtOptions = configuration.GetSection(JwtOptions.Section).Get<JwtOptions>();
+            var jwtOptions = configuration.GetSection(JwtSettings.Section).Get<JwtSettings>();
 
-            services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.Section));
+            services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.Section));
 
             services.AddControllers()
                 .AddJsonOptions(options =>

@@ -9,28 +9,29 @@ namespace TradingEngine.Application.Features.Orders.Queries;
 /// </summary>
 public class GetOrderByIdQuery : IQuery<Result<OrderDto>>
 {
-   public Guid OrderId { get; set; }
+    public Guid OrderId { get; set; }
 }
 
 public class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery, Result<OrderDto>>
 {
-    private readonly IOrderRepository _orderRepository;
+    private readonly IOrderReadRepository _orderReadRepository;
 
-    public GetOrderByIdQueryHandler(IOrderRepository orderRepository)
+    public GetOrderByIdQueryHandler(IOrderReadRepository orderReadRepository)
     {
-        _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
+        _orderReadRepository = orderReadRepository;
     }
 
     public async Task<Result<OrderDto>> Handle(GetOrderByIdQuery request, CancellationToken cancellationToken)
     {
-        var order = await _orderRepository.GetByIdAsync(request.OrderId, cancellationToken);
+        var order = await _orderReadRepository.GetByIdAsync(request.OrderId, cancellationToken);
         if (order is null) return Result<OrderDto>.Failure("Order not found");
 
         return Result<OrderDto>.Success(new OrderDto
         {
             Id = order.Id,
             UserId = order.UserId,
-            Symbol = order.Symbol.Value,
+            SymbolName = order.Symbol.Name,
+            Currency = order.Symbol.Currency,
             Price = order.Price.Value,
             Quantity = order.Quantity.Value,
             RemainingQuantity = order.RemainingQuantity.Value,

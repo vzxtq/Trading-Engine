@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TradingEngine.Application.Options;
 
-public sealed class DatabaseOptions
+public sealed class DatabaseSettings
 {
     public const string SectionName = "Database";
     [Required]

@@ -1,6 +1,6 @@
 using TradingEngine.MatchingEngine.Commands;
 
-namespace TradingEngine.MatchingEngine.Abstractions
+namespace TradingEngine.MatchingEngine.Interfaces
 {
     public interface IMatchingEngineQueue
     {

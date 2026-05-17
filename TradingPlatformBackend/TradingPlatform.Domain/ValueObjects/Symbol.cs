@@ -36,8 +36,6 @@ public class Symbol : IEquatable<Symbol>
 
     public override int GetHashCode() => Value.GetHashCode();
 
-    public override string ToString() => Value;
-
     public static bool operator ==(Symbol? left, Symbol? right)
     {
         if (left is null && right is null) return true;

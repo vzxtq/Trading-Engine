@@ -5,7 +5,7 @@ using TradingEngine.Application.Interfaces.Accounts;
 
 namespace TradingEngine.Application.Features.Accounts.Queries
 {
-    public class GetAccountByIdQuery : IQuery<Result<AccountViewDto?>> , IRequest<Result<AccountViewDto?>>
+    public class GetAccountByIdQuery : IQuery<Result<AccountViewDto?>>
     {
         public Guid AccountId { get; set; }
     }

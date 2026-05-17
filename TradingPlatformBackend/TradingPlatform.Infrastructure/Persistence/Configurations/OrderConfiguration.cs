@@ -30,15 +30,14 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<OrderDomain>
             .IsRequired()
             .HasConversion<string>();
 
-        // Converters and Comparers for Value Objects
-        var symbolConverter = new ValueConverter<Symbol, string>(
-            v => v.Value,
-            v => new Symbol(v));
-        var symbolComparer = new ValueComparer<Symbol>(
-            (l, r) => l.Value == r.Value,
-            s => s.Value.GetHashCode(),
-            s => new Symbol(s.Value));
+        builder.Property(o => o.SymbolId)
+            .IsRequired();
 
+        builder.HasOne(o => o.Symbol)
+            .WithMany()
+            .HasForeignKey(o => o.SymbolId);
+
+        // Converters and Comparers for Value Objects
         var priceConverter = new ValueConverter<Price, decimal>(
             v => v.Value,
             v => new Price(v));
@@ -54,14 +53,6 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<OrderDomain>
             (l, r) => l.Value == r.Value,
             q => q.Value.GetHashCode(),
             q => new Quantity(q.Value));
-
-        builder.Property(o => o.Symbol)
-               .HasConversion(symbolConverter)
-               .Metadata.SetValueComparer(symbolComparer);
-        builder.Property(o => o.Symbol)
-               .HasColumnName("Symbol")
-               .HasMaxLength(10)
-               .IsRequired();
 
         builder.Property(o => o.Price)
                .HasConversion(priceConverter)

@@ -4,10 +4,13 @@ using TradingEngine.Application.Features.Orders.Commands;
 using TradingEngine.Application.Features.Orders.Queries;
 using TradingEngineApi.Extensions;
 using TradingEngine.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TradingEngine.Api.Controllers;
 
 [Route("api/[controller]")]
+[ApiController]
+[Authorize]
 public class OrdersController : ApiController
 {
     private readonly IUserResolverService _userResolverService;
@@ -15,6 +18,13 @@ public class OrdersController : ApiController
     public OrdersController(IMediator mediator, IUserResolverService userResolverService) : base(mediator)
     {
         _userResolverService = userResolverService;
+    }
+
+    [HttpGet("user-orders")]
+    public async Task<IActionResult> GetUserOrders([FromQuery] GetOrdersByUserIdQuery query)
+    {
+        var result = await _mediator.Send(query with { UserId = _userResolverService.GetUserId() });
+        return result.ToActionResult();
     }
 
     [HttpPost]
@@ -48,14 +58,6 @@ public class OrdersController : ApiController
         return result.ToActionResult();
     }
 
-    [HttpGet("user/{userId:guid}")]
-    public async Task<IActionResult> GetByUser(Guid userId, CancellationToken ct)
-    {
-        var query = new GetUserOrdersQuery { UserId = userId };
-        var result = await _mediator.Send(query, ct);
-
-        return result.ToActionResult();
-    }
 
     [HttpGet("book/{symbol}")]
     public async Task<IActionResult> GetOrderBook(string symbol, CancellationToken ct)

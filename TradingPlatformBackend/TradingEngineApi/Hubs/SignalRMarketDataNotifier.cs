@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Models.Notifications;
 
 namespace TradingEngine.Api.Hubs

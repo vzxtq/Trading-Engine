@@ -13,12 +13,12 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
 {
     private readonly IUserIdentityRepository _identityRepository;
     private readonly IJwtTokenGenerator _tokenGenerator;
-    private readonly JwtOptions _jwtOptions;
+    private readonly JwtSettings _jwtOptions;
 
     public RefreshTokenCommandHandler(
         IUserIdentityRepository identityRepository,
         IJwtTokenGenerator tokenGenerator,
-        IOptions<JwtOptions> jwtOptions)
+        IOptions<JwtSettings> jwtOptions)
     {
         _identityRepository = identityRepository;
         _tokenGenerator = tokenGenerator;

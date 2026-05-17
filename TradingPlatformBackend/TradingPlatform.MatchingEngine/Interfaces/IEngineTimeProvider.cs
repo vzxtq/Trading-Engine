@@ -1,4 +1,4 @@
-namespace TradingEngine.MatchingEngine.Abstractions;
+namespace TradingEngine.MatchingEngine.Interfaces;
 
 /// <summary>
 /// Supplies deterministic timestamps for the matching engine.

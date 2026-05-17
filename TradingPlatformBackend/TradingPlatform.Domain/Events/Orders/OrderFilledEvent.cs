@@ -7,20 +7,20 @@ public class OrderFilledEvent : DomainEvent
 {
     public Guid OrderId { get; }
     public Guid UserId { get; }
-    public Symbol Symbol { get; }
+    public Guid SymbolId { get; }
     public Quantity Quantity { get; }
 
     public OrderFilledEvent(
         Guid orderId,
         Guid userId,
-        Symbol symbol,
+        Guid symbolId,
         Quantity quantity)
     {
         AggregateId = orderId;
 
         OrderId = orderId;
         UserId = userId;
-        Symbol = symbol;
+        SymbolId = symbolId;
         Quantity = quantity;
     }
 }

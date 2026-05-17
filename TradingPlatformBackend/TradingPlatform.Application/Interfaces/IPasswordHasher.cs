@@ -1,4 +1,4 @@
-namespace TradingEngine.Domain.Interfaces;
+namespace TradingEngine.Application.Interfaces;
 
 public interface IPasswordHasher
 {

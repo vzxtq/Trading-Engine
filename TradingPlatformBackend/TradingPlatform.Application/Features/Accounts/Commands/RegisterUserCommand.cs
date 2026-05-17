@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Options;
 using TradingEngine.Application.Common;
 using TradingEngine.Application.Features.Accounts.Dtos;
+using TradingEngine.Application.Interfaces;
 using TradingEngine.Application.Interfaces.Accounts;
 using TradingEngine.Application.Options;
 using TradingEngine.Domain.Entities;
 using TradingEngine.Domain.Enums;
-using TradingEngine.Domain.Interfaces;
 using TradingEngine.Domain.ValueObjects;
 
 namespace TradingEngine.Application.Features.Accounts.Commands;
@@ -24,14 +24,14 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
     private readonly IAccountRepository _accountRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly Application.Interfaces.IJwtTokenGenerator _tokenGenerator;
-    private readonly JwtOptions _jwtOptions;
+    private readonly JwtSettings _jwtOptions;
 
     public RegisterUserCommandHandler(
         IUserIdentityRepository identityRepository,
         IAccountRepository accountRepository,
         IPasswordHasher passwordHasher,
         Application.Interfaces.IJwtTokenGenerator tokenGenerator,
-        IOptions<JwtOptions> jwtOptions)
+        IOptions<JwtSettings> jwtOptions)
     {
         _identityRepository = identityRepository;
         _accountRepository = accountRepository;

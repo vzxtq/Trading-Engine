@@ -17,6 +17,10 @@ namespace TradingEngine.Infrastructure.Persistence.Configurations
                 .HasMaxLength(10)
                 .IsRequired();
 
+            builder.Property(s => s.Currency)
+                .IsRequired()
+                .HasConversion<string>();
+
             builder.HasIndex(s => s.Name)
                 .IsUnique()
                 .HasDatabaseName("IX_Symbols_Name");

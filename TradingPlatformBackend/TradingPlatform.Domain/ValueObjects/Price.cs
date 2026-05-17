@@ -38,8 +38,6 @@ public class Price : IEquatable<Price>, IComparable<Price>
 
     public int CompareTo(Price? other) => other is null ? 1 : Value.CompareTo(other.Value);
 
-    public override string ToString() => Value.ToString("F2");
-
     public static bool operator ==(Price? left, Price? right)
     {
         if (left is null && right is null) return true;

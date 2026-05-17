@@ -1,6 +1,6 @@
 using TradingEngine.MatchingEngine.Models.Notifications;
 
-namespace TradingEngine.MatchingEngine.Abstractions;
+namespace TradingEngine.MatchingEngine.Interfaces;
 
 public interface IMarketDataNotifier
 {

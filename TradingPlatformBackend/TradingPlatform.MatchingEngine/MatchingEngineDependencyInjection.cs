@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Services;
 using TradingEngine.MatchingEngine.Services.Background;
 
@@ -29,6 +29,7 @@ public static class MatchingEngineDependencyInjection
         services.AddSingleton<MatchingEngineHost>();
         services.AddSingleton<IMatchingEngineQueue>(sp => sp.GetRequiredService<MatchingEngineHost>());
         services.AddSingleton<IOrderBookSnapshotProvider>(sp => sp.GetRequiredService<MatchingEngineHost>());
+        services.AddSingleton<IMatchingEngineRunner>(sp => sp.GetRequiredService<MatchingEngineHost>());
         services.AddHostedService<MatchingEngineBackgroundService>();
 
         return new MatchingEngineBuilder(services);

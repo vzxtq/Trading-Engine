@@ -12,9 +12,9 @@ namespace TradingEngine.Infrastructure.Security;
 
 public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
-    private readonly JwtOptions _options;
+    private readonly JwtSettings _options;
 
-    public JwtTokenGenerator(IOptions<JwtOptions> options)
+    public JwtTokenGenerator(IOptions<JwtSettings> options)
     {
         _options = options.Value;
     }

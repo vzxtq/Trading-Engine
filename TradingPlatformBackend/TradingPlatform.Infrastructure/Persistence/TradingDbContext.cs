@@ -40,6 +40,7 @@ namespace TradingEngine.Infrastructure.Persistence
             modelBuilder.ApplyConfiguration(new OrderConfiguration());
             modelBuilder.ApplyConfiguration(new TradeConfiguration());
             modelBuilder.ApplyConfiguration(new PositionConfiguration());
+            modelBuilder.ApplyConfiguration(new SymbolConfiguration());
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

@@ -1,5 +1,4 @@
-using TradingEngine.Domain.Interfaces;
-
+using TradingEngine.Application.Interfaces;
 namespace TradingEngine.Infrastructure.Security;
 
 public sealed class BCryptPasswordHasher : IPasswordHasher

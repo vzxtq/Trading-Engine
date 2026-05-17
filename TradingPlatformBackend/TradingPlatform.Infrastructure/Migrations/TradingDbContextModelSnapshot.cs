@@ -54,11 +54,8 @@ namespace TradingEngine.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("Symbol");
+                    b.Property<Guid>("SymbolId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -68,6 +65,8 @@ namespace TradingEngine.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("PK_Orders");
+
+                    b.HasIndex("SymbolId");
 
                     b.HasIndex("UserId", "CreatedAt")
                         .HasDatabaseName("IX_Orders_User_CreatedAt");
@@ -98,7 +97,7 @@ namespace TradingEngine.Infrastructure.Migrations
                         .HasColumnType("decimal(18,8)")
                         .HasColumnName("ReservedQuantity");
 
-                    b.Property<string>("Symbol")
+                    b.Property<string>("SymbolValue")
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)")
@@ -113,7 +112,7 @@ namespace TradingEngine.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("PK_Positions");
 
-                    b.HasIndex("UserId", "Symbol")
+                    b.HasIndex("UserId", "SymbolValue")
                         .IsUnique()
                         .HasDatabaseName("UX_Positions_User_Symbol");
 
@@ -126,13 +125,23 @@ namespace TradingEngine.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Currency")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
-                    b.ToTable("Symbols");
+                    b.HasKey("Id")
+                        .HasName("PK_Symbols");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Symbols_Name");
+
+                    b.ToTable("Symbols", (string)null);
                 });
 
             modelBuilder.Entity("TradingEngine.Domain.Entities.TradeDomain", b =>
@@ -276,6 +285,17 @@ namespace TradingEngine.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserIdentities", (string)null);
+                });
+
+            modelBuilder.Entity("TradingEngine.Domain.Entities.OrderDomain", b =>
+                {
+                    b.HasOne("TradingEngine.Domain.Entities.SymbolDomain", "Symbol")
+                        .WithMany()
+                        .HasForeignKey("SymbolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Symbol");
                 });
 
             modelBuilder.Entity("TradingEngine.Domain.Entities.UserAccountDomain", b =>

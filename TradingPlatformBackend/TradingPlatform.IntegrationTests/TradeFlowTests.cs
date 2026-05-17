@@ -140,12 +140,12 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
         var buyerId = trades[0].BuyerId;
         var btcSymbol = new Symbol("BTCUSD");
 
-        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.Symbol == btcSymbol);
+        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == btcSymbol);
         sellerPos.Should().NotBeNull();
         sellerPos!.Quantity.Value.Should().Be(9); // 10 seeded - 1 sold
         sellerPos.AverageCost.Should().Be(40000); // Should not change on sell
 
-        var buyerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == buyerId && p.Symbol == btcSymbol);
+        var buyerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == buyerId && p.SymbolValue == btcSymbol);
         buyerPos.Should().NotBeNull();
         buyerPos!.Quantity.Value.Should().Be(1);
         buyerPos.AverageCost.Should().Be(50000); // 1st purchase at 50000
@@ -199,7 +199,7 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
 
         using var verifyScope = _factory.Services.CreateScope();
         var verifyContext = verifyScope.ServiceProvider.GetRequiredService<TradingDbContext>();
-        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.Symbol == new Symbol("AAPL"));
+        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == new Symbol("AAPL"));
         
         sellerPos.Should().NotBeNull();
         sellerPos!.Quantity.Value.Should().Be(0);

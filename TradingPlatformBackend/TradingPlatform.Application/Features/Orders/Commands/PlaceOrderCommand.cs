@@ -3,13 +3,13 @@ using TradingEngine.Application.Interfaces.Orders;
 using TradingEngine.Application.Interfaces.Accounts;
 using TradingEngine.Domain.Entities;
 using TradingEngine.Domain.Enums;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Commands;
 using TradingEngine.Application.Common;
 using TradingEngine.Application.Features.Orders.Dtos;
 using TradingEngine.Domain.ValueObjects;
 using TradingEngine.Application.Interfaces;
-
+using TradingEngine.Application.Interfaces.Symbols;
 using TradingEngine.Application.Interfaces.Positions;
 
 namespace TradingEngine.Application.Features.Orders.Commands;
@@ -32,19 +32,22 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
     private readonly IAccountRepository _accountRepository;
     private readonly IPositionRepository _positionRepository;
     private readonly IUserResolverService _userResolver;
+    private readonly ISymbolReadRepository _symbolRepository;
 
     public PlaceOrderCommandHandler(
         IMatchingEngineQueue queue,
         IOrderRepository orderRepository,
         IAccountRepository accountRepository,
         IPositionRepository positionRepository,
-        IUserResolverService userResolver)
+        IUserResolverService userResolver,
+        ISymbolReadRepository symbolRepository)
     {
         _queue = queue;
         _orderRepository = orderRepository;
         _accountRepository = accountRepository;
         _positionRepository = positionRepository;
         _userResolver = userResolver;
+        _symbolRepository = symbolRepository;
     }
 
     public async Task<Result<PlaceOrderResponseDto>> Handle(
@@ -52,11 +55,14 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
         CancellationToken cancellationToken)
     {
         var userId = _userResolver.GetUserId();
-        var orderId = Guid.NewGuid();
-
+        
         try
         {
-            var symbol = new Symbol(request.Symbol);
+            var symbolEntity = await _symbolRepository.GetSymbolByNameAsync(request.Symbol, cancellationToken);
+            if (symbolEntity == null)
+                return Result<PlaceOrderResponseDto>.Failure("Symbol not found");
+
+            var symbolValue = new Symbol(request.Symbol);
             var price = new Price(request.Price);
             var quantity = new Quantity(request.Quantity);
 
@@ -86,7 +92,7 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
 
             var order = OrderDomain.Create(
                 userId,
-                symbol,
+                symbolEntity.Id,
                 price,
                 quantity,
                 request.Side);
@@ -97,7 +103,7 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
             {
                 OrderId = order.Id,
                 UserId = userId,
-                Symbol = symbol,
+                Symbol = symbolValue,
                 Price = request.Price,
                 Quantity = request.Quantity,
                 Side = request.Side,

@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TradingEngine.Application.Options;
 
-public sealed class JwtOptions
+public sealed class JwtSettings
 {
     public const string Section = "Jwt";
 

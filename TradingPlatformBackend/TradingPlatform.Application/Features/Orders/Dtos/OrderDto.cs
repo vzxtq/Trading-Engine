@@ -9,7 +9,8 @@ public class OrderDto
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public string Symbol { get; set; } = string.Empty;
+    public string SymbolName { get; set; } = string.Empty;
+    public Currency Currency { get; set; }
     public decimal Price { get; set; }
     public decimal Quantity { get; set; }
     public decimal RemainingQuantity { get; set; }

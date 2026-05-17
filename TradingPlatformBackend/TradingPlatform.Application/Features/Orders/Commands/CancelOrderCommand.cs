@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 using TradingEngine.Application.Features.Orders.Repositories;
 using TradingEngine.Application.Interfaces.Orders;
 using TradingEngine.Application.Interfaces.Accounts;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Commands;
 using TradingEngine.Application.Common;
 using TradingEngine.Application.Features.Orders.Dtos;
@@ -26,17 +26,20 @@ public class CancelOrderCommand : ICommand<Result<CancelOrderResponseDto>>
 public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderCommand, Result<CancelOrderResponseDto>>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IOrderReadRepository _orderReadRepository;
     private readonly IAccountRepository _accountRepository;
     private readonly IPositionRepository _positionRepository;
     private readonly IMatchingEngineQueue _engineQueue;
 
     public CancelOrderCommandHandler(
         IOrderRepository orderRepository,
+        IOrderReadRepository orderReadRepository,
         IAccountRepository accountRepository,
         IPositionRepository positionRepository,
         IMatchingEngineQueue engineQueue)
     {
         _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
+        _orderReadRepository = orderReadRepository ?? throw new ArgumentNullException(nameof(orderReadRepository));
         _accountRepository = accountRepository ?? throw new ArgumentNullException(nameof(accountRepository));
         _positionRepository = positionRepository ?? throw new ArgumentNullException(nameof(positionRepository));
         _engineQueue = engineQueue ?? throw new ArgumentNullException(nameof(engineQueue));
@@ -46,7 +49,7 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
         CancelOrderCommand request,
         CancellationToken cancellationToken)
     {
-        var order = await _orderRepository.GetByIdAsync(request.OrderId, cancellationToken);
+        var order = await _orderReadRepository.GetByIdAsync(request.OrderId, cancellationToken);
         if (order is null)
         {
             return Result<CancelOrderResponseDto>.Failure("Order not found");
@@ -70,7 +73,7 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
         }
         else if (order.Side == OrderSide.Sell)
         {
-            var position = await _positionRepository.GetUserPositionForSymbolAsync(order.UserId, order.Symbol.Value, cancellationToken);
+            var position = await _positionRepository.GetUserPositionForSymbolAsync(order.UserId, order.Symbol.Name, cancellationToken);
             if (position != null)
             {
                 position.ReleaseReserved(order.RemainingQuantity);
@@ -83,10 +86,10 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
         await _orderRepository.UpdateAsync(order, cancellationToken);
 
         // Notify engine to remove from book
-        var cancelCommand = new TradingEngine.MatchingEngine.Commands.CancelOrderCommand
+        var cancelCommand = new MatchingEngine.Commands.CancelOrderCommand
         {
             OrderId = order.Id,
-            Symbol = new Symbol(order.Symbol.Value)
+            Symbol = new Symbol(order.Symbol.Name)
         };
 
         await _engineQueue.EnqueueAsync(cancelCommand, cancellationToken);
@@ -94,7 +97,6 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
         return Result<CancelOrderResponseDto>.Success(new CancelOrderResponseDto
         {
             OrderId = order.Id,
-            Success = true,
             Message = "Cancel request accepted"
         });
     }

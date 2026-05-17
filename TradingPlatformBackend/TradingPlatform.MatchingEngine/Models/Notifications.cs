@@ -1,3 +1,5 @@
+using TradingEngine.Domain.Enums;
+
 namespace TradingEngine.MatchingEngine.Models.Notifications;
 
 public record TradeNotification(
@@ -17,6 +19,6 @@ public record OrderBookStateChangeDto(
 
 public record OrderStatusNotification(
     Guid OrderId,
-    string Status,
+    OrderStatus Status,
     decimal FilledQuantity,
     decimal RemainingQuantity);

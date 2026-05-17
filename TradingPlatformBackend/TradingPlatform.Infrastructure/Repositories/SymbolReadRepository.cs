@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TradingEngine.Application.Interfaces.Symbols;
 using TradingEngine.Infrastructure.Persistence;
+using TradingEngine.Domain.Entities;
 
 namespace TradingEngine.Infrastructure.Repositories
 {
@@ -19,6 +20,13 @@ namespace TradingEngine.Infrastructure.Repositories
                 .AsNoTracking()
                 .Select(s => s.Name)
                 .ToListAsync();
+        }
+
+        public async Task<SymbolDomain?> GetSymbolByNameAsync(string name, CancellationToken cancellationToken)
+        {
+            return await _dbContext.Symbols
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Name == name, cancellationToken);
         }
     }
 }

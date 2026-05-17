@@ -16,7 +16,7 @@ public sealed class PositionConfiguration : IEntityTypeConfiguration<PositionDom
 
         builder.Property(p => p.UserId).IsRequired();
 
-        builder.Property(p => p.Symbol)
+        builder.Property(p => p.SymbolValue)
                .HasConversion(
                    v => v.Value,
                    v => new Symbol(v))
@@ -24,7 +24,7 @@ public sealed class PositionConfiguration : IEntityTypeConfiguration<PositionDom
                .HasMaxLength(10)
                .IsRequired();
 
-        builder.HasIndex(p => new { p.UserId, p.Symbol })
+        builder.HasIndex(p => new { p.UserId, p.SymbolValue })
                .IsUnique()
                .HasDatabaseName("UX_Positions_User_Symbol");
 

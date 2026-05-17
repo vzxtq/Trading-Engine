@@ -10,7 +10,6 @@ using TradingEngine.Application.Interfaces.Positions;
 using TradingEngine.Application.Interfaces.Symbols;
 using TradingEngine.Application.Interfaces.Trades;
 using TradingEngine.Application.Options;
-using TradingEngine.Domain.Interfaces;
 using TradingEngine.Infrastructure.Handlers;
 using TradingEngine.Infrastructure.Persistence;
 using TradingEngine.Infrastructure.Repositories;
@@ -19,7 +18,7 @@ using TradingEngine.Infrastructure.Repositories.Orders;
 using TradingEngine.Infrastructure.Repositories.Positions;
 using TradingEngine.Infrastructure.Repositories.Trades;
 using TradingEngine.Infrastructure.Security;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 
 namespace TradingEngine.Infrastructure;
 
@@ -29,22 +28,23 @@ public static class InfrustructureDependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddOptions<DatabaseOptions>()
-            .Bind(configuration.GetSection(DatabaseOptions.SectionName))
+        services.AddOptions<DatabaseSettings>()
+            .Bind(configuration.GetSection(DatabaseSettings.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         services.AddDbContext<TradingDbContext>((sp, options) =>
         {
-            var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            var dbOptions = sp.GetRequiredService<IOptions<DatabaseSettings>>().Value;
             options.UseSqlServer(dbOptions.DefaultConnection,
-                sql => sql.MigrationsAssembly(DatabaseOptions.MigrationsAssembly));
+                sql => sql.MigrationsAssembly(DatabaseSettings.MigrationsAssembly));
         });
 
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<IUserIdentityRepository, UserIdentityRepository>();
         services.AddScoped<IAccountReadRepository, AccountReadRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<IOrderReadRepository, OrderReadRepository>();
         services.AddScoped<IOrderBookReadRepository, OrderBookReadRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
         services.AddScoped<IPositionReadRepository, PositionReadRepository>();

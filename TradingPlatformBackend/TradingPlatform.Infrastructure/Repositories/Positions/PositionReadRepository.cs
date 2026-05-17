@@ -32,7 +32,7 @@ public sealed class PositionReadRepository : IPositionReadRepository
         var symbolObj = new Symbol(symbol);
         var position = await _dbContext.Positions
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.UserId == userId && p.Symbol == symbolObj, ct);
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.SymbolValue == symbolObj, ct);
 
         return position is null ? null : MapToDto(position);
     }
@@ -41,7 +41,7 @@ public sealed class PositionReadRepository : IPositionReadRepository
     {
         return new PositionDto
         {
-            Symbol = p.Symbol.Value,
+            Symbol = p.SymbolValue.Value,
             Quantity = p.Quantity.Value,
             AveragePrice = p.AverageCost,
             UnrealizedPnL = 0m,

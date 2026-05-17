@@ -1,13 +1,12 @@
 using System.Diagnostics;
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TradingEngine.Domain.Enums;
-using TradingEngine.Infrastructure.Persistence;
-using TradingEngine.MatchingEngine.Abstractions;
-using TradingEngine.MatchingEngine.Models;
 using TradingEngine.Domain.Entities;
 using TradingEngine.Domain.ValueObjects;
+using TradingEngine.Infrastructure.Persistence;
+using TradingEngine.MatchingEngine.Interfaces;
+using TradingEngine.MatchingEngine.Models;
 
 namespace TradingEngine.Infrastructure.Handlers;
 
@@ -38,7 +37,7 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
 
     private async Task PersistAcceptedAsync(ExecutionResult.Accepted accepted, CancellationToken cancellationToken)
     {
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         try
         {
@@ -61,19 +60,17 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                 .Where(a => userIds.Contains(a.Id))
                 .ToDictionaryAsync(a => a.Id, cancellationToken);
 
-            var symbols = orders.Values.Select(o => o.Symbol).Distinct().ToList();
+            var symbols = orders.Values.Select(o => o.Symbol.Name).Distinct().ToList();
             var positions = await _dbContext.Positions
-                .Where(p => userIds.Contains(p.UserId) && symbols.Contains(p.Symbol))
+                .Where(p => userIds.Contains(p.UserId) && symbols.Contains(p.SymbolValue.Value))
                 .ToListAsync(cancellationToken);
 
             PositionDomain? FindPosition(Guid userId, Symbol symbol) =>
-                positions.FirstOrDefault(p => p.UserId == userId && p.Symbol == symbol);
+                positions.FirstOrDefault(p => p.UserId == userId && p.SymbolValue == symbol);
 
-            // Trades: move cash and update positions.
             foreach (var trade in accepted.Trades)
             {
                 var buyOrder = orders[trade.BuyOrderId];
-                var sellOrder = orders[trade.SellOrderId];
 
                 var price = new Price(trade.Price);
                 var qty = new Quantity(trade.Quantity);
@@ -81,17 +78,14 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                 var currency = accounts[trade.BuyerId].Balance.Currency;
                 var money = new Money(notional, currency);
 
-                var buyer = accounts[trade.BuyerId];
-                var seller = accounts[trade.SellerId];
+                accounts[trade.BuyerId].CommitReservedFunds(money);
+                accounts[trade.SellerId].Deposit(money);
 
-                buyer.CommitReservedFunds(money);
-                seller.Deposit(money);
-
-                var buyPos = FindPosition(trade.BuyerId, buyOrder.Symbol);
+                var buyPos = FindPosition(trade.BuyerId, new Symbol(buyOrder.Symbol.Name));
                 if (buyPos is null)
                 {
-                    buyPos = PositionDomain.Create(trade.BuyerId, buyOrder.Symbol, qty, price.Value)
-                        ?? throw new UnreachableException();
+                    buyPos = PositionDomain.Create(trade.BuyerId, new Symbol(buyOrder.Symbol.Name), qty, price.Value)
+                        ?? throw new UnreachableException("PositionDomain.Create returned null unexpectedly.");
                     _dbContext.Positions.Add(buyPos);
                     positions.Add(buyPos);
                 }
@@ -100,10 +94,9 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                     buyPos.Add(qty, price.Value);
                 }
 
-                var sellPos = FindPosition(trade.SellerId, buyOrder.Symbol)
-                              ?? throw new InvalidOperationException("Seller position not found for symbol");
+                var sellPos = FindPosition(trade.SellerId, new Symbol(buyOrder.Symbol.Name))
+                    ?? throw new InvalidOperationException($"Seller position not found for symbol '{buyOrder.Symbol.Name}'.");
 
-                // Commitment: Seller already had funds reserved during PlaceOrder
                 sellPos.CommitReserved(qty);
 
                 var executedAt = DateTimeOffset.FromUnixTimeMilliseconds(trade.ExecutedAt).UtcDateTime;
@@ -113,65 +106,53 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                     trade.SellOrderId,
                     trade.BuyerId,
                     trade.SellerId,
-                    buyOrder.Symbol,
+                    new Symbol(buyOrder.Symbol.Name),
                     price,
                     qty,
                     executedAt);
+
                 _dbContext.Trades.Add(tradeDomain);
             }
 
-            // Order states and releasing unused reserves.
             foreach (var stateChange in accepted.StateChanges)
             {
                 if (!orders.TryGetValue(stateChange.OrderId, out var order))
                     continue;
 
-                _logger.LogInformation("Processing state change for order {OrderId}: {Status}, Filled: {Filled}", 
+                _logger.LogInformation(
+                    "Processing state change for order {OrderId}: {Status}, Filled: {Filled}",
                     stateChange.OrderId, stateChange.Status, stateChange.FilledQuantity);
 
-                var filledBefore = order.Quantity.Value - order.RemainingQuantity.Value;
-                var newlyFilled = stateChange.FilledQuantity - (long)filledBefore;
-                if (newlyFilled > 0)
-                {
-                    order.Fill(new Quantity(newlyFilled));
-                }
+                order.ApplyStateChange(stateChange.FilledQuantity, stateChange.Status);
 
-                if (order.Status != stateChange.Status)
+                if (order.Side == OrderSide.Buy
+                    && stateChange.Status == OrderStatus.Cancelled
+                    && stateChange.RemainingQuantity > 0)
                 {
-                    if (stateChange.Status == OrderStatus.Cancelled)
-                    {
-                        order.Cancel();
-                    }
-                    else if (stateChange.Status == OrderStatus.Filled && order.Status != OrderStatus.Filled)
-                    {
-                        if (order.RemainingQuantity.Value == 0)
-                        {
-                            order.Fill(new Quantity(0));
-                        }
-                    }
-                }
+                    var release = new Money(
+                        order.Price.Value * stateChange.RemainingQuantity,
+                        accounts[order.UserId].Balance.Currency);
 
-                if (order.Side == OrderSide.Buy && stateChange.Status == OrderStatus.Cancelled && stateChange.RemainingQuantity > 0)
-                {
-                    var release = new Money(order.Price.Value * stateChange.RemainingQuantity, accounts[order.UserId].Balance.Currency);
                     accounts[order.UserId].ReleaseReservedFunds(release);
                 }
-                else if (order.Side == OrderSide.Sell && stateChange.Status == OrderStatus.Cancelled && stateChange.RemainingQuantity > 0)
+                else if (order.Side == OrderSide.Sell
+                    && stateChange.Status == OrderStatus.Cancelled
+                    && stateChange.RemainingQuantity > 0)
                 {
-                    var sellPos = FindPosition(order.UserId, order.Symbol);
-                    sellPos?.ReleaseReserved(new Quantity(stateChange.RemainingQuantity));
+                    FindPosition(order.UserId, new Symbol(order.Symbol.Name))
+                        ?.ReleaseReserved(new Quantity(stateChange.RemainingQuantity));
                 }
 
                 _dbContext.Orders.Update(order);
             }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
-            await tx.CommitAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to persist execution result");
-            await tx.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
         }
     }
 }

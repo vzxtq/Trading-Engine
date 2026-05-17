@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using TradingEngine.Domain.Entities;
 
 namespace TradingEngine.Application.Interfaces.Symbols
 {
     public interface ISymbolReadRepository
     {
         Task<List<string>> GetAllSymbolsAsync();
+        Task<SymbolDomain?> GetSymbolByNameAsync(string name, CancellationToken cancellationToken);
     }
 }

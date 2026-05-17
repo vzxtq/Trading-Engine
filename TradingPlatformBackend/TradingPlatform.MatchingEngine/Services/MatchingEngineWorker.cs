@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
-using TradingEngine.MatchingEngine.Abstractions;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Commands;
 
 namespace TradingEngine.MatchingEngine.Services;

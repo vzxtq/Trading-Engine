@@ -8,7 +8,8 @@ public class Quantity : IEquatable<Quantity>, IComparable<Quantity>
 {
     public decimal Value { get; private set; }
 
-    public Quantity() { }
+    public Quantity()
+    { }
 
     public Quantity(decimal value)
     {
@@ -23,8 +24,8 @@ public class Quantity : IEquatable<Quantity>, IComparable<Quantity>
     public Quantity Subtract(Quantity other)
     {
         var result = Value - other.Value;
-  if (result < 0)
-    throw new InvalidOperationException("Cannot subtract more than available quantity");
+        if (result < 0)
+            throw new InvalidOperationException("Cannot subtract more than available quantity");
         return new Quantity(result);
     }
 
@@ -36,13 +37,11 @@ public class Quantity : IEquatable<Quantity>, IComparable<Quantity>
 
     public bool IsEqual(Quantity other) => Value == other.Value;
 
- public override bool Equals(object? obj) => Equals(obj as Quantity);
+    public override bool Equals(object? obj) => Equals(obj as Quantity);
 
     public bool Equals(Quantity? other) => other is not null && Value == other.Value;
 
     public override int GetHashCode() => Value.GetHashCode();
 
     public int CompareTo(Quantity? other) => other is null ? 1 : Value.CompareTo(other.Value);
-
-    public override string ToString() => Value.ToString();
 }

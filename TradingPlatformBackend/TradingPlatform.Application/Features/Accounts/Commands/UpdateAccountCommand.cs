@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using TradingEngine.Application.Common;
+using TradingEngine.Application.Interfaces;
 using TradingEngine.Application.Interfaces.Accounts;
-using TradingEngine.Domain.Interfaces;
 
 namespace TradingEngine.Application.Features.Accounts.Commands;
 

@@ -4,7 +4,6 @@ using TradingEngine.Application.Features.Accounts.Dtos;
 using TradingEngine.Application.Interfaces;
 using TradingEngine.Application.Interfaces.Accounts;
 using TradingEngine.Application.Options;
-using TradingEngine.Domain.Interfaces;
 
 namespace TradingEngine.Application.Features.Accounts.Commands;
 
@@ -15,13 +14,13 @@ public sealed class LoginCommandHandler : ICommandHandler<LoginCommand, Result<L
     private readonly IUserIdentityRepository _identityRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _tokenGenerator;
-    private readonly JwtOptions _jwtOptions;
+    private readonly JwtSettings _jwtOptions;
 
     public LoginCommandHandler(
         IUserIdentityRepository identityRepository,
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator tokenGenerator,
-        IOptions<JwtOptions> jwtOptions)
+        IOptions<JwtSettings> jwtOptions)
     {
         _identityRepository = identityRepository;
         _passwordHasher = passwordHasher;

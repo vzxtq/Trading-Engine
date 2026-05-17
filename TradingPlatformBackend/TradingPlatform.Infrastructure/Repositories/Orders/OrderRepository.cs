@@ -26,18 +26,4 @@ public sealed class OrderRepository : IOrderRepository
         _dbContext.Orders.Update(order);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
-
-    public async Task<OrderDomain?> GetByIdAsync(Guid orderId, CancellationToken cancellationToken)
-    {
-        return await _dbContext.Orders
-            .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken);
-    }
-
-    public async Task<IEnumerable<OrderDomain>> GetUserOrdersAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        return await _dbContext.Orders
-            .Where(o => o.UserId == userId)
-            .OrderByDescending(o => o.CreatedAt)
-            .ToListAsync(cancellationToken);
-    }
 }

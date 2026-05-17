@@ -19,13 +19,13 @@ public sealed class OrderBookReadRepository : IOrderBookReadRepository
     public async Task<OrderBookDto> GetOrderBookAsync(Symbol symbol, CancellationToken cancellationToken)
     {
         var buyOrders = await _dbContext.Orders
-            .Where(o => o.Symbol == symbol && o.Side == Domain.Enums.OrderSide.Buy)
+            .Where(o => o.Symbol.Name == symbol.Value && o.Side == Domain.Enums.OrderSide.Buy)
             .OrderByDescending(o => EF.Property<decimal>(o, "Price"))
             .ThenBy(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var sellOrders = await _dbContext.Orders
-            .Where(o => o.Symbol == symbol && o.Side == Domain.Enums.OrderSide.Sell)
+            .Where(o => o.Symbol.Name == symbol.Value && o.Side == Domain.Enums.OrderSide.Sell)
             .OrderBy(o => EF.Property<decimal>(o, "Price"))
             .ThenBy(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -42,7 +42,8 @@ public sealed class OrderBookReadRepository : IOrderBookReadRepository
     {
         Id = o.Id,
         UserId = o.UserId,
-        Symbol = o.Symbol.Value,
+        SymbolName = o.Symbol.Name,
+
         Price = o.Price.Value,
         Quantity = o.Quantity.Value,
         RemainingQuantity = o.RemainingQuantity.Value,

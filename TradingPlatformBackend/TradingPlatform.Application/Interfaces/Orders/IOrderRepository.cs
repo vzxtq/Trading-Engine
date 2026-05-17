@@ -9,6 +9,4 @@ public interface IOrderRepository
 {
     Task AddAsync(OrderDomain order, CancellationToken cancellationToken);
     Task UpdateAsync(OrderDomain order, CancellationToken cancellationToken);
-    Task<OrderDomain?> GetByIdAsync(Guid orderId, CancellationToken cancellationToken);
-    Task<IEnumerable<OrderDomain>> GetUserOrdersAsync(Guid userId, CancellationToken cancellationToken);
 }
