@@ -129,11 +129,13 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
         orders.All(o => o.Status == OrderStatus.Filled).Should().BeTrue();
 
         var trades = await verifyContext.Trades
+            .Include(t => t.Symbol)
             .Where(t => testUsers.Contains(t.BuyerId) || testUsers.Contains(t.SellerId))
             .ToListAsync();
         trades.Should().HaveCount(1);
         trades[0].Price.Value.Should().Be(50000);
         trades[0].Quantity.Value.Should().Be(1);
+        trades[0].Symbol.Name.Should().Be("BTCUSD");
 
         // Verify Position updates
         var sellerId = trades[0].SellerId;

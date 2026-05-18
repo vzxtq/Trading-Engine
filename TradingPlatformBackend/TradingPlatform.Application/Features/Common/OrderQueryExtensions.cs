@@ -11,13 +11,12 @@ public static class OrderQueryExtensions
         return query.Where(o => o.UserId == userId);
     }
 
-    public static IQueryable<OrderDomain> FilterBySymbol(this IQueryable<OrderDomain> query, string? symbol)
+    public static IQueryable<OrderDomain> FilterBySymbol(this IQueryable<OrderDomain> query, Guid? symbolId)
     {
-        if (string.IsNullOrWhiteSpace(symbol))
+        if (!symbolId.HasValue)
             return query;
 
-        var symbolValue = symbol.Trim().ToUpper();
-        return query.Where(o => o.Symbol.Name == symbolValue);
+        return query.Where(o => o.SymbolId == symbolId.Value);
     }
 
     public static IQueryable<OrderDomain> FilterBySide(this IQueryable<OrderDomain> query, OrderSide? side)

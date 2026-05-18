@@ -63,13 +63,9 @@ public class AccountsController : ApiController
 
     [Authorize]
     [HttpGet("trades")]
-    public async Task<IActionResult> GetMyTradeHistory([FromQuery] string? symbol, CancellationToken ct)
+    public async Task<IActionResult> GetMyTradeHistory([FromQuery] GetTradeHistoryQuery query, CancellationToken ct)
     {
-        var query = new GetTradeHistoryQuery
-        {
-            UserId = _userResolverService.GetUserId(),
-            Symbol = symbol
-        };
+        query.UserId = _userResolverService.GetUserId();
         var result = await _mediator.Send(query, ct);
         return result.ToActionResult();
     }

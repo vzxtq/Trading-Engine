@@ -89,7 +89,8 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
         var cancelCommand = new MatchingEngine.Commands.CancelOrderCommand
         {
             OrderId = order.Id,
-            Symbol = new Symbol(order.Symbol.Name)
+            Symbol = new Symbol(order.Symbol.Name),
+            SymbolId = order.SymbolId
         };
 
         await _engineQueue.EnqueueAsync(cancelCommand, cancellationToken);

@@ -71,7 +71,7 @@ public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapsho
         ArgumentNullException.ThrowIfNull(symbol);
 
         var tcs = new TaskCompletionSource<OrderBookSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var cmd = new SnapshotOrderBookCommand { Symbol = symbol, Completion = tcs };
+        var cmd = new SnapshotOrderBookCommand { Symbol = symbol, SymbolId = Guid.Empty, Completion = tcs };
 
         await GetWriter(symbol.Value).WriteAsync(cmd, cancellationToken).ConfigureAwait(false);
         return await tcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);

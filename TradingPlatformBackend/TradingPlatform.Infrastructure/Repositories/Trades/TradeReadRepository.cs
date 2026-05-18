@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using TradingEngine.Application.Common;
+using TradingEngine.Application.Common.Models;
+using TradingEngine.Application.Features.Common;
+using TradingEngine.Application.Features.Trades;
 using TradingEngine.Application.Features.Trades.Dtos;
 using TradingEngine.Application.Interfaces.Trades;
-using TradingEngine.Domain.Enums;
-using TradingEngine.Domain.ValueObjects;
+using TradingEngine.Infrastructure.Common.Extensions;
 using TradingEngine.Infrastructure.Persistence;
 
 namespace TradingEngine.Infrastructure.Repositories.Trades;
@@ -14,33 +15,27 @@ public sealed class TradeReadRepository : ITradeReadRepository
 
     public TradeReadRepository(TradingDbContext dbContext)
     {
-        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<TradeDto>> GetByUserIdAsync(Guid userId, string? symbol, CancellationToken ct)
+    public async Task<PagedResult<TradeDto>> GetByUserIdAsync(
+        Guid userId, 
+        TradeFilterDto filter,
+        PaginatedQuery pagination,
+        CancellationToken ct)
     {
         var query = _dbContext.Trades
             .AsNoTracking()
-            .Where(t => t.BuyerId == userId || t.SellerId == userId);
+            .Include(t => t.Symbol)
+            .FilterByUserId(userId)
+            .FilterBySymbol(filter.SymbolId)
+            .FilterBySide(userId, filter.Side)
+            .FilterByDateRange(filter.From, filter.To)
+            .SortBy(pagination.GetSortingOptions());
 
-        if (!string.IsNullOrWhiteSpace(symbol))
-        {
-            var symbolObj = new Symbol(symbol);
-            query = query.Where(t => t.Symbol == symbolObj);
-        }
-
-        var trades = await query
-            .OrderByDescending(t => t.ExecutedAt)
-            .ToListAsync(ct);
-
-        return trades.Select(t => new TradeDto
-        {
-            TradeId = t.Id,
-            Symbol = t.Symbol.Value,
-            Price = t.Price.Value,
-            Quantity = t.Quantity.Value,
-            Side = t.BuyerId == userId ? OrderSide.Buy : OrderSide.Sell,
-            ExecutedAt = t.ExecutedAt.ToUnixTimeMs()
-        }).ToList();
+        return await query.ToPagedResultAsync(
+            pagination,
+            TradeMappers.ToTradeDto(userId),
+            ct);
     }
 }

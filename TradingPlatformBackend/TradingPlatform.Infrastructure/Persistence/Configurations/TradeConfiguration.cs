@@ -22,13 +22,12 @@ public sealed class TradeConfiguration : IEntityTypeConfiguration<TradeDomain>
         builder.Property(t => t.BuyerId).IsRequired();
         builder.Property(t => t.SellerId).IsRequired();
 
-        builder.Property(t => t.Symbol)
-               .HasConversion(
-                   v => v.Value,
-                   v => new Symbol(v))
-               .HasColumnName("Symbol")
-               .HasMaxLength(10)
-               .IsRequired();
+        builder.Property(t => t.SymbolId)
+            .IsRequired();
+
+        builder.HasOne(t => t.Symbol)
+            .WithMany()
+            .HasForeignKey(t => t.SymbolId);
 
         builder.Property(t => t.Price)
                .HasConversion(v => v.Value, v => new Price(v))

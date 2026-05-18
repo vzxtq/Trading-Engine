@@ -109,7 +109,7 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                     trade.SellOrderId,
                     trade.BuyerId,
                     trade.SellerId,
-                    new Symbol(buyOrder.Symbol.Name),
+                    trade.SymbolId,
                     price,
                     qty,
                     executedAt);

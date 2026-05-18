@@ -98,12 +98,12 @@ public class PositionsAndTradesTests : IClassFixture<TradingPlatformFactory>
             PropertyNameCaseInsensitive = true,
             Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
         };
-        var buyerTrades = await buyerTradesResp.Content.ReadFromJsonAsync<ApiResponse<List<TradeDto>>>(options);
+        var buyerTrades = await buyerTradesResp.Content.ReadFromJsonAsync<ApiResponse<TradeHistoryResponseDto>>(options);
         
         buyerTrades!.Data.Should().NotBeNull();
-        buyerTrades.Data.Should().ContainSingle(t => t.Symbol == symbol);
-        buyerTrades.Data!.First(t => t.Symbol == symbol).Quantity.Should().Be(quantity);
-        buyerTrades.Data!.First(t => t.Symbol == symbol).Price.Should().Be(price);
+        buyerTrades.Data!.Trades.Items.Should().ContainSingle(t => t.Symbol == symbol);
+        buyerTrades.Data!.Trades.Items.First(t => t.Symbol == symbol).Quantity.Should().Be(quantity);
+        buyerTrades.Data!.Trades.Items.First(t => t.Symbol == symbol).Price.Should().Be(price);
 
         // 7. Verify Positions for Seller
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sellerToken);
@@ -121,12 +121,12 @@ public class PositionsAndTradesTests : IClassFixture<TradingPlatformFactory>
         // 8. Verify Trades for Seller
         var sellerTradesResp = await _client.GetAsync("/api/accounts/trades");
         sellerTradesResp.EnsureSuccessStatusCode();
-        var sellerTrades = await sellerTradesResp.Content.ReadFromJsonAsync<ApiResponse<List<TradeDto>>>(options);
+        var sellerTrades = await sellerTradesResp.Content.ReadFromJsonAsync<ApiResponse<TradeHistoryResponseDto>>(options);
         
         sellerTrades!.Data.Should().NotBeNull();
-        sellerTrades.Data.Should().ContainSingle(t => t.Symbol == symbol);
-        sellerTrades.Data!.First(t => t.Symbol == symbol).Quantity.Should().Be(quantity);
-        sellerTrades.Data!.First(t => t.Symbol == symbol).Price.Should().Be(price);
+        sellerTrades.Data!.Trades.Items.Should().ContainSingle(t => t.Symbol == symbol);
+        sellerTrades.Data!.Trades.Items.First(t => t.Symbol == symbol).Quantity.Should().Be(quantity);
+        sellerTrades.Data!.Trades.Items.First(t => t.Symbol == symbol).Price.Should().Be(price);
     }
 
     private async Task<string> RegisterAndLoginAsync(string email, string password, string first, string last)

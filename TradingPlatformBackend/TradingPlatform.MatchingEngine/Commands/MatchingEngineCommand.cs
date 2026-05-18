@@ -11,6 +11,7 @@ namespace TradingEngine.MatchingEngine.Commands;
 public abstract record MatchingEngineCommand
 {
     public required Symbol Symbol { get; init; }
+    public required Guid SymbolId { get; init; }
 }
 
 public sealed record AddOrderCommand : MatchingEngineCommand

@@ -29,7 +29,7 @@ public class OrderReadRepository : IOrderReadRepository
         var query = _dbContext.Orders
             .AsNoTracking()
             .FilterByUserId(userId)
-            .FilterBySymbol(filter.Symbol)
+            .FilterBySymbol(filter.SymbolId)
             .FilterBySearch(filter.Search)
             .FilterBySide(filter.Side)
             .FilterByStatus(filter.Status)

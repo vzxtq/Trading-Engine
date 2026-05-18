@@ -24,6 +24,7 @@ public sealed class SymbolEngine
             _ => new ExecutionResult.Rejected
             {
                 Symbol = command.Symbol,
+                SymbolId = command.SymbolId,
                 SequenceId = sequenceId,
                 EngineTimestamp = engineTimestamp,
                 Reason = "Unknown command"
@@ -37,6 +38,7 @@ public sealed class SymbolEngine
             command.OrderId,
             command.UserId,
             command.Symbol,
+            command.SymbolId,
             command.Price,
             command.Quantity,
             command.Side,
@@ -66,6 +68,7 @@ public sealed class SymbolEngine
         return new ExecutionResult.Accepted
         {
             Symbol = command.Symbol,
+            SymbolId = command.SymbolId,
             SequenceId = sequenceId,
             EngineTimestamp = engineTimestamp,
             Trades = trades,
@@ -80,6 +83,7 @@ public sealed class SymbolEngine
             return new ExecutionResult.Rejected
             {
                 Symbol = command.Symbol,
+                SymbolId = command.SymbolId,
                 SequenceId = sequenceId,
                 EngineTimestamp = engineTimestamp,
                 Reason = "Order not found"
@@ -97,6 +101,7 @@ public sealed class SymbolEngine
         return new ExecutionResult.Accepted
         {
             Symbol = command.Symbol,
+            SymbolId = command.SymbolId,
             SequenceId = sequenceId,
             EngineTimestamp = engineTimestamp,
             Trades = [],
@@ -133,7 +138,7 @@ public sealed class SymbolEngine
                 SellOrderId: taker.Side == OrderSide.Sell ? taker.Id : maker.Id,
                 BuyerId: taker.Side == OrderSide.Buy ? taker.UserId : maker.UserId,
                 SellerId: taker.Side == OrderSide.Sell ? taker.UserId : maker.UserId,
-                Symbol: taker.Symbol,
+                SymbolId: taker.SymbolId,
                 Price: maker.Price,
                 Quantity: quantity,
                 ExecutedAt: engineTimestamp));

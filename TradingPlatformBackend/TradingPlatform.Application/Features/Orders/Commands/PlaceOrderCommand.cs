@@ -104,6 +104,7 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
                 OrderId = order.Id,
                 UserId = userId,
                 Symbol = symbolValue,
+                SymbolId = symbolEntity.Id,
                 Price = request.Price,
                 Quantity = request.Quantity,
                 Side = request.Side,

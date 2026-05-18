@@ -12,7 +12,7 @@ public sealed record ExecutedTrade(
     Guid SellOrderId,
     Guid BuyerId,
     Guid SellerId,
-    Symbol Symbol,
+    Guid SymbolId,
     long Price,
     long Quantity,
     long ExecutedAt);

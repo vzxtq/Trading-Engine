@@ -9,6 +9,7 @@ namespace TradingEngine.MatchingEngine.Models;
 public abstract record ExecutionResult
 {
     public required Symbol Symbol { get; init; }
+    public required Guid SymbolId { get; init; }
     public required long SequenceId { get; init; }
     public required long EngineTimestamp { get; init; }
 

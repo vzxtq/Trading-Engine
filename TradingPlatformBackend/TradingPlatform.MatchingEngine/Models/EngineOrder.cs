@@ -11,6 +11,7 @@ public class EngineOrder
     public Guid Id { get; }
     public Guid UserId { get; }
     public Symbol Symbol { get; }
+    public Guid SymbolId { get; }
     public long Price { get; }
     public long OriginalQuantity { get; }
     public long FilledQuantity { get; private set; }
@@ -24,6 +25,7 @@ public class EngineOrder
         Guid id,
         Guid userId,
         Symbol symbol,
+        Guid symbolId,
         long price,
         long quantity,
         OrderSide side,
@@ -35,6 +37,7 @@ public class EngineOrder
         Id = id;
         UserId = userId;
         Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
+        SymbolId = symbolId;
         Price = price;
         OriginalQuantity = quantity;
         FilledQuantity = 0;

@@ -12,7 +12,8 @@ public class TradeDomain : BaseEntity
     public Guid SellOrderId { get; private set; }
     public Guid BuyerId { get; private set; }
     public Guid SellerId { get; private set; }
-    public Symbol Symbol { get; private set; } = null!;
+    public Guid SymbolId { get; private set; }
+    public virtual SymbolDomain Symbol { get; private set; } = null!;
     public Price Price { get; private set; } = null!;
     public Quantity Quantity { get; private set; } = null!;
     public DateTime ExecutedAt { get; private set; }
@@ -28,7 +29,7 @@ public class TradeDomain : BaseEntity
         Guid sellOrderId,
         Guid buyerId,
         Guid sellerId,
-        Symbol symbol,
+        Guid symbolId,
         Price price,
         Quantity quantity)
     {
@@ -39,7 +40,7 @@ public class TradeDomain : BaseEntity
             SellOrderId = sellOrderId,
             BuyerId = buyerId,
             SellerId = sellerId,
-            Symbol = symbol,
+            SymbolId = symbolId,
             Price = price,
             Quantity = quantity,
             ExecutedAt = DateTime.UtcNow,
@@ -53,7 +54,7 @@ public class TradeDomain : BaseEntity
         Guid sellOrderId,
         Guid buyerId,
         Guid sellerId,
-        Symbol symbol,
+        Guid symbolId,
         Price price,
         Quantity quantity,
         DateTime executedAtUtc)
@@ -65,7 +66,7 @@ public class TradeDomain : BaseEntity
             SellOrderId = sellOrderId,
             BuyerId = buyerId,
             SellerId = sellerId,
-            Symbol = symbol,
+            SymbolId = symbolId,
             Price = price,
             Quantity = quantity,
             ExecutedAt = executedAtUtc,
