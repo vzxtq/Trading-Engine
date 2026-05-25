@@ -43,28 +43,20 @@ public class OrderReadRepository : IOrderReadRepository
 
     public async Task<OrderSummary> GetOrderSummaryAsync(Guid userId, CancellationToken cancellationToken)
     {
-        // Use Select to extract primitive values before GroupBy to ensure translation
-        var ordersData = await _dbContext.Orders
-            .AsNoTracking()
-            .Where(o => o.UserId == userId)
-            .Select(o => new
-            {
-                o.Status,
-                Quantity = o.Quantity.Value,
-                Remaining = o.RemainingQuantity.Value,
-                Price = o.Price.Value
-            })
-            .ToListAsync(cancellationToken);
+        var query = from o in _dbContext.Orders.AsNoTracking()
+                    where o.UserId == userId
+                    select o;
 
-        var groups = ordersData
-            .GroupBy(o => o.Status)
-            .Select(g => new
-            {
-                Status = g.Key,
-                Count = g.Count(),
-                Volume = g.Sum(x => (x.Quantity - x.Remaining) * x.Price)
-            })
-            .ToList();
+        var orders = await query.ToListAsync(cancellationToken);
+
+        var groups = (from o in orders
+                      group o by o.Status into g
+                      select new
+                      {
+                          Status = g.Key,
+                          Count = g.Count(),
+                          Volume = g.Sum(x => (x.Quantity.Value - x.RemainingQuantity.Value) * x.Price.Value)
+                      }).ToList();
 
         var total = groups.Sum(s => s.Count);
         var open = groups.Where(s => s.Status == OrderStatus.Open || s.Status == OrderStatus.PartiallyFilled).Sum(s => s.Count);

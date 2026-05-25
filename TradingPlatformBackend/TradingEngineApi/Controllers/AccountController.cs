@@ -46,6 +46,11 @@ public class AccountsController : ApiController
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
+        if (id != _userResolverService.GetUserId())
+        {
+            return Forbid();
+        }
+
         var query = new GetAccountByIdQuery { AccountId = id };
         var result = await _mediator.Send(query, ct);
 

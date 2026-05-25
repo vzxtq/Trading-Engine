@@ -60,36 +60,13 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
             return Result<CancelOrderResponseDto>.Failure("Order does not belong to user");
         }
 
-        // Release reserved funds for Buy orders or reserved quantity for Sell orders.
-        // Use the stored ReservedAmount which captures the actual reserved value at placement.
-        if (order.Side == OrderSide.Buy)
+        if (order.Status == OrderStatus.Filled ||
+            order.Status == OrderStatus.Cancelled ||
+            order.Status == OrderStatus.Rejected)
         {
-            var account = await _accountRepository.GetByIdAsync(order.UserId, cancellationToken);
-            if (account != null)
-            {
-                // Scale release proportionally for partially filled orders
-                var remainingRatio = order.Quantity.Value > 0
-                    ? order.RemainingQuantity.Value / order.Quantity.Value
-                    : 0;
-                var releaseValue = order.ReservedAmount * remainingRatio;
-                var releaseAmount = new Money(releaseValue, account.Balance.Currency);
-                account.ReleaseReservedFunds(releaseAmount);
-                await _accountRepository.UpdateAsync(account, cancellationToken);
-            }
-        }
-        else if (order.Side == OrderSide.Sell)
-        {
-            var position = await _positionRepository.GetUserPositionForSymbolAsync(order.UserId, order.Symbol.Name, cancellationToken);
-            if (position != null)
-            {
-                position.ReleaseReserved(order.RemainingQuantity);
-                await _positionRepository.UpdateAsync(position, cancellationToken);
-            }
+            return Result<CancelOrderResponseDto>.Failure($"Cannot cancel order with status {order.Status}");
         }
 
-        // Update domain state
-        order.Cancel();
-        await _orderRepository.UpdateAsync(order, cancellationToken);
 
         // Notify engine to remove from book
         var cancelCommand = new MatchingEngine.Commands.CancelOrderCommand
