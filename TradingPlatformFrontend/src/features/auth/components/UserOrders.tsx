@@ -300,7 +300,7 @@ export const UserOrders = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap min-w-[120px]">
                       <span className="text-xs font-bold text-foreground font-mono">
-                        {order.filledQuantity.toFixed(2)}
+                        {(order.filledQuantity ?? 0).toFixed(2)} // TODO
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right font-mono">
