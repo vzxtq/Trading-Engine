@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/api/axios'
-import type { ApiResponse, OrderBookResponse, OrderDto, PagedResult, OrderListDto, OrderListResponseDto } from '@/types'
+import type { ApiResponse, OrderBookResponse, OrderDto, OrderListResponseDto } from '@/types'
 import { OrderListResponseDtoSchema, OrderBookResponseSchema } from '@/types/order.types' // Import OrderBookResponseSchema
 import type { PlaceOrderRequest } from '../types/trading.types'
 import { useOrderBookStore } from '@/store/orderBook'
@@ -124,3 +124,54 @@ export const useSymbols = () => {
   })
 }
 
+export interface CandleDto {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export const useCandles = (symbol: string, interval = '1m', limit = 100) => {
+  return useQuery({
+    queryKey: ['candles', symbol, interval, limit],
+    queryFn: async () => {
+      const response = await api.get<ApiResponse<CandleDto[]>>(
+        `/marketdata/candles?symbol=${symbol}&interval=${interval}&limit=${limit}`
+      )
+      return response.data.data || []
+    },
+    enabled: !!symbol,
+    staleTime: 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export interface OrderBookEntry {
+  price: number
+  quantity: number
+}
+
+export interface BinanceOrderBookDto {
+  symbol: string
+  bids: OrderBookEntry[]
+  asks: OrderBookEntry[]
+}
+
+export const useBinanceOrderBook = (symbol: string, limit = 20) => {
+  return useQuery({
+    queryKey: ['binance-orderbook', symbol, limit],
+    queryFn: async () => {
+      const response = await api.get<ApiResponse<BinanceOrderBookDto>>(
+        `/marketdata/orderbook?symbol=${symbol}&limit=${limit}`
+      )
+      return response.data.data || { symbol, bids: [], asks: [] }
+    },
+    enabled: !!symbol,
+    refetchInterval: 2000,
+    staleTime: 1000,
+    refetchOnWindowFocus: false,
+  })
+}

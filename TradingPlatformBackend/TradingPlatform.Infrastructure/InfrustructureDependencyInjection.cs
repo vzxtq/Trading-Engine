@@ -17,6 +17,7 @@ using TradingEngine.Infrastructure.Repositories.Accounts;
 using TradingEngine.Infrastructure.Repositories.Orders;
 using TradingEngine.Infrastructure.Repositories.Positions;
 using TradingEngine.Infrastructure.Repositories.Trades;
+using TradingEngine.Infrastructure.ExternalServices;
 using TradingEngine.Infrastructure.Security;
 using TradingEngine.MatchingEngine.Interfaces;
 
@@ -54,6 +55,8 @@ public static class InfrustructureDependencyInjection
 
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        services.AddHttpClient<IMarketDataProvider, BinanceMarketDataProvider>();
 
         return services;
     }
