@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useUserOrders, useCancelOrder } from '@/features/trading/api/trading.api'
 import { OrderSide } from '@/types/enums/order-side.enum'
-import { OrderStatus } from '@/types/enums/order-status.enum'
+import { OrderStatus, OrderStatusLabels } from '@/types/enums/order-status.enum'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,8 @@ export const UserOrders = () => {
   const [sortBy, setSortBy] = useState('createdAt') // Default sort by creation date
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // Default sort order
 
+  const debouncedSearch = useDebounce(searchQuery, 400)
+
   const queryParams = useMemo(() => {
     const params: Parameters<typeof useUserOrders>[0] = {
       page: currentPage,
@@ -32,7 +35,9 @@ export const UserOrders = () => {
       'SortOrder': sortOrder,
     }
 
-
+    if (debouncedSearch) {
+      params['Filter.Search'] = debouncedSearch
+    }
 
     if (statusFilter !== 'All') {
       // Map frontend status filter to backend enum value
@@ -61,7 +66,7 @@ export const UserOrders = () => {
     }
 
     return params
-  }, [currentPage, pageSize, statusFilter, sideFilter, sortBy, sortOrder])
+  }, [currentPage, pageSize, statusFilter, sideFilter, sortBy, sortOrder, debouncedSearch])
 
   const { data: responseData, isLoading } = useUserOrders(queryParams)
   const pagedOrders = responseData?.orders
@@ -85,16 +90,6 @@ export const UserOrders = () => {
 
     return { total, open, filled, cancelled, volume, fillRate, cancelledRate }
   }, [responseData])
-
-  // Filter the current page locally for the search query
-  const filteredOrders = useMemo(() => {
-    if (!searchQuery) return orders;
-    const q = searchQuery.toLowerCase();
-    return orders.filter(o => 
-      o.symbolName.toLowerCase().includes(q) || 
-      o.id.toLowerCase().includes(q)
-    );
-  }, [orders, searchQuery]);
 
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
@@ -196,7 +191,7 @@ export const UserOrders = () => {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {tab}
+              {tab === 'All' ? 'All' : OrderStatusLabels[tab as OrderStatus]}
             </button>
           ))}
         </div>
@@ -258,12 +253,12 @@ export const UserOrders = () => {
               <tr>
                 <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground animate-pulse">Loading orders...</td>
               </tr>
-            ) : filteredOrders.length === 0 ? (
+            ) : orders.length === 0 ? (
               <tr>
                 <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">No orders found</td>
               </tr>
             ) : (
-              filteredOrders.map((order) => {
+              orders.map((order) => {
                 const totalAmount = order.price.amount * order.quantity
 
                 return (
@@ -312,7 +307,7 @@ export const UserOrders = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge variant="outline" className={cn("text-[9px] font-bold px-2 py-0 h-5 border", getStatusColor(order.status))}>
-                        {order.status.toUpperCase()}
+                        {OrderStatusLabels[order.status].toUpperCase()}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -358,7 +353,7 @@ export const UserOrders = () => {
       {pagedOrders && pagedOrders.totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
           <span className="text-[11px] font-medium text-muted-foreground">
-            Showing {filteredOrders.length} of {pagedOrders.totalCount} orders
+            Showing {orders.length} of {pagedOrders.totalCount} orders
           </span>
           <div className="flex items-center gap-1">
             <Button 

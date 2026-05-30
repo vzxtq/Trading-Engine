@@ -143,10 +143,6 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
         >
           {placeOrder.isPending ? 'Placing...' : `${side === OrderSide.Buy ? 'BUY' : 'SELL'} ${symbol}`}
         </Button>
-        
-        {placeOrder.error && (
-            <p className="text-[10px] text-red-500 text-center mt-2">{(placeOrder.error as any).message || 'Order failed'}</p>
-        )}
       </div>
     </div>
   )

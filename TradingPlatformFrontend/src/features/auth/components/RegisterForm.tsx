@@ -152,10 +152,6 @@ export const RegisterForm: React.FC = () => {
             >
               {registerMutation.isPending ? 'Creating account...' : 'Create account'}
             </Button>
-            
-            {registerMutation.error && (
-              <p className="text-sm text-red-500">{(registerMutation.error as any).message || 'Registration failed'}</p>
-            )}
 
             <p className="text-center text-sm text-muted-foreground">
               Already have an account? <Link to="/login" className="text-foreground hover:underline font-semibold">Sign in</Link>

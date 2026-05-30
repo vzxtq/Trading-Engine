@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createChart, ColorType, CandlestickSeries, type ISeriesApi } from 'lightweight-charts'
 import { useThemeStore } from '@/store/theme'
 import { useTradesStore } from '@/store/trades'
@@ -8,14 +8,18 @@ interface PriceChartProps {
   symbol: string
 }
 
+export const SUPPORTED_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
+export type Timeframe = typeof SUPPORTED_TIMEFRAMES[number];
+
 export const PriceChart: React.FC<PriceChartProps> = ({ symbol }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<any>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const { theme } = useThemeStore()
   const recent = useTradesStore((state) => state.recent)
+  const [interval, setInterval] = useState<Timeframe>("1m");
 
-  const { data: candles = [] } = useCandles(symbol)
+  const { data: candles = [] } = useCandles(symbol, interval)
 
   // ── Effect 1: chart initialisation + historical candle data ────────────────
   useEffect(() => {
@@ -82,7 +86,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol }) => {
         close: Number(c.close),
       }))
     )
-  }, [candles])
+  }, [candles, theme])
 
   // ── Effect 2: live trade tick updates ──────────────────────────────────────
   useEffect(() => {
@@ -99,7 +103,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol }) => {
       low: Math.min(Number(lastCandle.low), lastTrade.price),
       close: lastTrade.price,
     })
-  }, [recent, symbol, candles])
+  }, [recent, symbol, candles, theme])
 
   // ── Derived display values ─────────────────────────────────────────────────
   const lastCandle = candles[candles.length - 1]
@@ -111,7 +115,24 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol }) => {
   return (
     <div className="w-full h-full flex flex-col relative">
       <div className="p-2 border-b border-border flex justify-between items-center bg-card">
-        <span className="text-xs font-bold text-foreground uppercase tracking-wider">{symbol} / USD</span>
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-bold text-foreground uppercase tracking-wider">{symbol} / USD</span>
+          <div className="flex bg-muted p-0.5 rounded-md">
+            {SUPPORTED_TIMEFRAMES.map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setInterval(tf)}
+                className={`px-2 py-1 text-[10px] font-bold rounded-sm transition-all ${
+                  interval === tf
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2">
           {displayPrice !== undefined ? (
             <span className="text-[10px] text-green-500 font-mono">${displayPrice.toFixed(2)}</span>

@@ -67,10 +67,6 @@ export const LoginForm: React.FC = () => {
             >
               {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
             </Button>
-            
-            {loginMutation.error && (
-              <p className="text-sm text-red-500">{(loginMutation.error as any).message || 'Login failed'}</p>
-            )}
 
             <p className="text-center text-sm text-muted-foreground">
               Forgot your password? <Link to="/reset" className="text-foreground hover:underline font-semibold">Reset it</Link>

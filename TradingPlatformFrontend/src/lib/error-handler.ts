@@ -1,8 +1,8 @@
 import { toast } from "sonner"
-import { AxiosError } from "axios"
+import axios from "axios"
 
 export const handleApiError = (error: unknown) => {
-  if (error instanceof AxiosError) {
+  if (axios.isAxiosError(error)) {
     const data = error.response?.data as any
     const status = error.response?.status
 

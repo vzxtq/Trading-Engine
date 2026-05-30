@@ -12,6 +12,7 @@ interface UserOrderQueryParams {
   pageSize?: number
   'Filter.Side'?: OrderSide
   'Filter.Status'?: OrderStatus
+  'Filter.Search'?: string
 
   'SortBy'?: string
   'SortOrder'?: 'asc' | 'desc'
