@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, numericClass } from '@/lib/utils'
 
 interface TradingHeaderProps {
   userId: string | null
@@ -60,7 +60,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({ userId, symbol, se
           {/* AVAILABLE Section */}
           <div className="flex flex-col items-end px-3">
             <span className="text-xs text-muted-foreground font-semibold leading-none mb-1">Available</span>
-            <span className="text-sm text-[#22c55e] font-bold leading-none">
+            <span className={cn(numericClass, 'text-sm text-green-500 leading-none')}>
               {account ? formatCurrency(account.availableBalance.amount, account.availableBalance.currency) : '0.00'}
             </span>
           </div>
@@ -74,7 +74,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({ userId, symbol, se
           {account && account.reservedBalance.amount > 0 && (
             <div className="flex flex-col items-end px-3">
               <span className="text-xs text-muted-foreground font-semibold leading-none mb-1">Reserved</span>
-              <span className="text-sm text-amber-500 font-bold leading-none">
+              <span className={cn(numericClass, 'text-sm text-amber-500 leading-none')}>
                 {formatCurrency(account.reservedBalance.amount, account.reservedBalance.currency)}
               </span>
             </div>
@@ -120,9 +120,10 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({ userId, symbol, se
 
             <DropdownMenuSeparator className="bg-border" />
             
-            <DropdownMenuItem 
+            <DropdownMenuItem
+              variant="destructive"
               onClick={handleLogout}
-              className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+              className="cursor-pointer"
             >
               <LogOut className="mr-2 size-4" />
               <span>Logout</span>

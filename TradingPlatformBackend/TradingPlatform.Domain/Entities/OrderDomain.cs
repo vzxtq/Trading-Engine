@@ -21,6 +21,8 @@ namespace TradingEngine.Domain.Entities
         public OrderSide Side { get; private set; }
         public OrderType Type { get; private set; }
         public OrderStatus Status { get; private set; }
+        
+        public string? IdempotencyKey { get; private set; }
 
         /// <summary>
         /// The actual amount reserved at placement time (funds for Buy, quantity for Sell).
@@ -37,7 +39,8 @@ namespace TradingEngine.Domain.Entities
             Quantity quantity,
             OrderSide side,
             OrderType type,
-            decimal reservedAmount)
+            decimal reservedAmount,
+            string? idempotencyKey = null)
         {
             var order = new OrderDomain
             {
@@ -51,6 +54,7 @@ namespace TradingEngine.Domain.Entities
                 Type = type,
                 Status = OrderStatus.Open,
                 ReservedAmount = reservedAmount,
+                IdempotencyKey = idempotencyKey,
                 CreatedAt = DateTime.UtcNow
             };
 

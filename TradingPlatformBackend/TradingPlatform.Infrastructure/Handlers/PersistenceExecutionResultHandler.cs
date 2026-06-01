@@ -46,7 +46,14 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                 .SelectMany(t => new[] { t.BuyOrderId, t.SellOrderId })
                 .Concat(accepted.StateChanges.Select(sc => sc.OrderId))
                 .Distinct()
+                .OrderBy(id => id)
                 .ToList();
+
+            if (orderIds.Any())
+            {
+                var idList = string.Join(",", orderIds.Select(id => $"'{id}'"));
+                await _dbContext.Database.ExecuteSqlRawAsync($"SELECT 1 FROM Orders WITH (UPDLOCK) WHERE Id IN ({idList})", cancellationToken);
+            }
 
             var orders = await _dbContext.Orders
                 .Include(o => o.Symbol)
@@ -56,13 +63,27 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
             var userIds = orders.Values.Select(o => o.UserId)
                 .Concat(accepted.Trades.SelectMany(t => new[] { t.BuyerId, t.SellerId }))
                 .Distinct()
+                .OrderBy(id => id)
                 .ToList();
+
+            if (userIds.Any())
+            {
+                var idList = string.Join(",", userIds.Select(id => $"'{id}'"));
+                await _dbContext.Database.ExecuteSqlRawAsync($"SELECT 1 FROM UserAccounts WITH (UPDLOCK) WHERE Id IN ({idList})", cancellationToken);
+            }
 
             var accounts = await _dbContext.UserAccounts
                 .Where(a => userIds.Contains(a.Id))
                 .ToDictionaryAsync(a => a.Id, cancellationToken);
 
             var symbolsInBatch = orders.Values.Select(o => o.Symbol.Name).Distinct().ToHashSet();
+            
+            if (userIds.Any())
+            {
+                var idList = string.Join(",", userIds.Select(id => $"'{id}'"));
+                await _dbContext.Database.ExecuteSqlRawAsync($"SELECT 1 FROM Positions WITH (UPDLOCK) WHERE UserId IN ({idList})", cancellationToken);
+            }
+
             var allPositions = await _dbContext.Positions
                 .Where(p => userIds.Contains(p.UserId))
                 .ToListAsync(cancellationToken);
@@ -144,24 +165,15 @@ public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
                     && (stateChange.Status == OrderStatus.Cancelled || stateChange.Status == OrderStatus.PartiallyFilledCancelled)
                     && stateChange.RemainingQuantity > 0)
                 {
-                    decimal releaseAmount;
-                    if (order.Type == OrderType.Limit)
-                    {
-                        // Use authoritative state: reservedAmount - (filledQuantity * price)
-                        releaseAmount = order.ReservedAmount - (order.FilledQuantity * order.Price!.Value);
-                    }
-                    else // Market order
-                    {                        
-                        var spentInPreviousBatches = await _dbContext.Trades
-                            .Where(t => t.BuyOrderId == order.Id)
-                            .SumAsync(t => t.Price.Value * t.Quantity.Value, cancellationToken);
-                            
-                        var spentInThisBatch = accepted.Trades
-                            .Where(t => t.BuyOrderId == order.Id)
-                            .Sum(t => t.Price.ToDomainPrice() * t.Quantity.ToDomainQuantity());
-                            
-                        releaseAmount = order.ReservedAmount - (spentInPreviousBatches + spentInThisBatch);
-                    }
+                    var spentInPreviousBatches = await _dbContext.Trades
+                        .Where(t => t.BuyOrderId == order.Id)
+                        .SumAsync(t => t.Price.Value * t.Quantity.Value, cancellationToken);
+
+                    var spentInThisBatch = accepted.Trades
+                        .Where(t => t.BuyOrderId == order.Id)
+                        .Sum(t => t.Price.ToDomainPrice() * t.Quantity.ToDomainQuantity());
+
+                    decimal releaseAmount = order.ReservedAmount - (spentInPreviousBatches + spentInThisBatch);
 
                     var release = new Money(
                         Math.Max(0, releaseAmount),

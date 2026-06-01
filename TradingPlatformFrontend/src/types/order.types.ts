@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { OrderSide } from './enums/order-side.enum'
 import { OrderStatus } from './enums/order-status.enum'
+import { OrderType } from './enums/order-type.enum'
 
 export const OrderBookLevelSchema = z.object({
   price: z.number(),
@@ -60,14 +61,16 @@ export const OrderListDtoSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
   symbolName: z.string(),
-  price: z.number().nullable(),
+  currency: z.string(),
+  side: z.nativeEnum(OrderSide),
+  type: z.nativeEnum(OrderType),
+  price: MoneyDtoSchema,
   quantity: z.number(),
   filledQuantity: z.number(),
   remainingQuantity: z.number(),
-  side: z.nativeEnum(OrderSide),
   status: z.nativeEnum(OrderStatus),
   createdAt: z.number(),
-  updatedAt: z.number().nullable().optional(),
+  updatedAt: z.number().nullable(),
 })
 
 export type OrderListDto = z.infer<typeof OrderListDtoSchema>
@@ -98,8 +101,8 @@ export const OrderSummaryDtoSchema = z.object({
 export type OrderSummaryDto = z.infer<typeof OrderSummaryDtoSchema>
 
 export const SortingOptionsSchema = z.object({
-  sortBy: z.string(),
-  sortOrder: z.string(),
+  column: z.string(),
+  direction: z.string(),
 })
 
 export type SortingOptions = z.infer<typeof SortingOptionsSchema>

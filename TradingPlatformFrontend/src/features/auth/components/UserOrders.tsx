@@ -6,6 +6,13 @@ import { OrderStatus, OrderStatusLabels } from '@/types/enums/order-status.enum'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { 
   Search, 
   SlidersHorizontal, 
@@ -13,7 +20,24 @@ import {
   ChevronLeft, 
   ChevronRight
 } from 'lucide-react'
-import { cn, formatAmount } from '@/lib/utils'
+import { cn, dangerActionClass, formatNumber, formatUsd, numericClass } from '@/lib/utils'
+
+const SIDE_FILTER_ITEMS = {
+  All: 'All sides',
+  Buy: 'Buy',
+  Sell: 'Sell',
+} as const
+
+const SORT_BY_ITEMS = {
+  createdAt: 'Sort by Date',
+  symbol: 'Sort by Symbol',
+  price: 'Sort by Price',
+} as const
+
+const SORT_ORDER_ITEMS = {
+  desc: 'Newest First',
+  asc: 'Oldest First',
+} as const
 
 export const UserOrders = () => {
   // Local state for pagination, filtering, and sorting
@@ -22,8 +46,8 @@ export const UserOrders = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'Filled' | 'Cancelled' | 'Rejected' | 'PartiallyFilled'>('All')
   const [sideFilter, setSideFilter] = useState<'All' | 'Buy' | 'Sell'>('All')
-  const [sortBy, setSortBy] = useState('createdAt') // Default sort by creation date
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // Default sort order
+  const [sortBy, setSortBy] = useState<'createdAt' | 'symbol' | 'price'>('createdAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const debouncedSearch = useDebounce(searchQuery, 400)
 
@@ -31,8 +55,8 @@ export const UserOrders = () => {
     const params: Parameters<typeof useUserOrders>[0] = {
       page: currentPage,
       pageSize: pageSize,
-      'SortBy': sortBy,
-      'SortOrder': sortOrder,
+      SortingColumn: sortBy,
+      SortingDirection: sortOrder === 'desc' ? 'Descending' : 'Ascending',
     }
 
     if (debouncedSearch) {
@@ -97,19 +121,9 @@ export const UserOrders = () => {
       case OrderStatus.Filled: return 'bg-green-500/10 text-green-500 border-green-500/20'
       case OrderStatus.PartiallyFilled: return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
       case OrderStatus.Cancelled: return 'bg-muted text-muted-foreground border-border'
-      case OrderStatus.Rejected: return 'bg-destructive/10 text-destructive border-destructive/20'
+      case OrderStatus.Rejected: return 'bg-red-500/10 text-red-500 border-red-500/20 dark:text-red-400 dark:border-red-500/30'
       default: return ''
     }
-  }
-
-  const formatOrderDate = (ts: number) => {
-    return new Date(ts).toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    })
   }
 
   return (
@@ -117,10 +131,6 @@ export const UserOrders = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">My orders</h1>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-9 gap-2 text-sm font-semibold border-border bg-background">
-            <SlidersHorizontal size={14} />
-            Filters
-          </Button>
           <Button variant="outline" size="sm" className="h-9 gap-2 text-sm font-semibold border-border bg-background">
             <FileDown size={14} />
             Export CSV
@@ -161,18 +171,18 @@ export const UserOrders = () => {
         <div className="bg-card p-5 rounded-xl border border-border">
           <span className="text-xs font-semibold text-muted-foreground block mb-3">Total Volume</span>
           <div className="flex flex-col">
-            <span className="text-2xl font-bold text-foreground">${formatAmount(stats.volume)}</span>
+            <span className={cn(numericClass, 'text-2xl')}>{formatUsd(stats.volume)}</span>
             <span className="text-xs text-muted-foreground font-medium mt-1">USD traded</span>
           </div>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-[300px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <Input 
-            placeholder="Search by symbol or order ID" 
+            placeholder="Search by symbol" 
             className="pl-10 h-10 bg-card border-border text-sm placeholder:text-muted-foreground/50"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -196,66 +206,80 @@ export const UserOrders = () => {
           ))}
         </div>
 
-        <div className="flex gap-2 ml-auto">
-          <select 
-            className="bg-card border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer h-10"
+        <div className="flex shrink-0 gap-2 ml-auto">
+          <Select
+            items={SIDE_FILTER_ITEMS}
             value={sideFilter}
-            onChange={(e) => setSideFilter(e.target.value as 'All' | 'Buy' | 'Sell')}
+            onValueChange={(value) => value && setSideFilter(value as typeof sideFilter)}
           >
-            <option value="All">All sides</option>
-            <option value="Buy">Buy</option>
-            <option value="Sell">Sell</option>
-          </select>
-          {/* <select className="bg-card border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer h-10">
-            <option>All symbols</option>
-          </select> */}
-          <select 
-            className="bg-card border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer h-10"
+            <SelectTrigger className="h-10 w-[120px] bg-card border-border text-xs font-bold text-foreground focus:ring-0 focus:ring-offset-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false} className="bg-popover border-border text-popover-foreground">
+              <SelectItem value="All" label="All sides">All sides</SelectItem>
+              <SelectItem value="Buy" label="Buy">Buy</SelectItem>
+              <SelectItem value="Sell" label="Sell">Sell</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            items={SORT_BY_ITEMS}
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onValueChange={(value) => value && setSortBy(value as typeof sortBy)}
           >
-            <option value="createdAt">Sort by Date</option>
-            <option value="symbol">Sort by Symbol</option>
-            <option value="price">Sort by Price</option>
-            {/* Add more sorting options as needed */}
-          </select>
-          <select 
-            className="bg-card border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer h-10"
+            <SelectTrigger className="h-10 w-[148px] bg-card border-border text-xs font-bold text-foreground focus:ring-0 focus:ring-offset-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false} className="bg-popover border-border text-popover-foreground">
+              <SelectItem value="createdAt" label="Sort by Date">Sort by Date</SelectItem>
+              <SelectItem value="symbol" label="Sort by Symbol">Sort by Symbol</SelectItem>
+              <SelectItem value="price" label="Sort by Price">Sort by Price</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            items={SORT_ORDER_ITEMS}
             value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+            onValueChange={(value) => value && setSortOrder(value as typeof sortOrder)}
           >
-            <option value="desc">Newest First</option>
-            <option value="asc">Oldest First</option>
-          </select>
+            <SelectTrigger className="h-10 w-[132px] bg-card border-border text-xs font-bold text-foreground focus:ring-0 focus:ring-offset-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false} className="bg-popover border-border text-popover-foreground">
+              <SelectItem value="desc" label="Newest First">Newest First</SelectItem>
+              <SelectItem value="asc" label="Oldest First">Oldest First</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full table-fixed border-collapse">
+          <colgroup>
+            <col span={9} style={{ width: `${100 / 9}%` }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Order ID</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Symbol</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Side</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Type</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Price</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground text-right">Quantity</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Filled</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground text-right">Total</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Status</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Date</th>
-              <th className="px-6 py-4 text-sm font-semibold text-muted-foreground text-right">Actions</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Symbol</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Side</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Type</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Price</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Quantity</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Filled</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Total</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-muted-foreground">Status</th>
+              <th className="px-4 py-4" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {isLoading ? (
               <tr>
-                <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground animate-pulse">Loading orders...</td>
+                <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground animate-pulse">Loading orders...</td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">No orders found</td>
+                <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">No orders found</td>
               </tr>
             ) : (
               orders.map((order) => {
@@ -263,24 +287,15 @@ export const UserOrders = () => {
 
                 return (
                   <tr key={order.id} className="hover:bg-muted/20 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-foreground">#ORD-{order.id.slice(0, 5).toUpperCase()}</span>
-                        <span className="text-xs text-muted-foreground font-medium">Limit</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-6 h-6 shrink-0 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
                           {order.symbolName[0]}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-foreground">{order.symbolName}</span>
-                          <span className="text-xs text-muted-foreground font-medium">Limit</span>
-                        </div>
+                        <span className="text-sm font-bold text-foreground">{order.symbolName}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
                       <span className={cn(
                         "text-xs font-semibold",
                         order.side === OrderSide.Buy ? "text-green-500" : "text-red-500"
@@ -288,58 +303,51 @@ export const UserOrders = () => {
                         {order.side === OrderSide.Buy ? 'Buy' : 'Sell'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
                       <span className="text-xs font-semibold text-muted-foreground">Limit</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-foreground font-mono">${formatAmount(order.price.amount)}</span>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <span className={cn(numericClass, 'text-sm')}>{formatUsd(order.price.amount)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <span className="text-sm font-bold text-foreground font-mono">{order.quantity.toFixed(4)}</span>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <span className={cn(numericClass, 'text-sm')}>{formatNumber(order.quantity)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap min-w-[120px]">
-                      <span className="text-sm font-bold text-foreground font-mono">
-                        {(order.filledQuantity ?? 0).toFixed(2)} // TODO
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <span className={cn(numericClass, 'text-sm')}>
+                        {formatNumber(order.filledQuantity ?? 0)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right font-mono">
-                      <span className="text-sm font-bold text-foreground">${formatAmount(totalAmount)}</span>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <span className={cn(numericClass, 'text-sm')}>{formatUsd(totalAmount)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
                       <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0 h-5 border", getStatusColor(order.status))}>
                         {OrderStatusLabels[order.status]}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">{formatOrderDate(order.createdAt)}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted">
-                          View
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      {(order.status === OrderStatus.Open || order.status === OrderStatus.PartiallyFilled) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn('h-8 px-3 text-xs font-semibold', dangerActionClass)}
+                          onClick={() => {
+                            setCancellingIds(prev => new Set(prev).add(order.id))
+                            cancelOrder.mutate(order.id, {
+                              onSettled: () => {
+                                setCancellingIds(prev => {
+                                  const next = new Set(prev)
+                                  next.delete(order.id)
+                                  return next
+                                })
+                              }
+                            })
+                          }}
+                          disabled={cancellingIds.has(order.id)}
+                        >
+                          {cancellingIds.has(order.id) ? '...' : 'Cancel'}
                         </Button>
-                        {(order.status === OrderStatus.Open || order.status === OrderStatus.PartiallyFilled) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-3 text-xs font-semibold text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => {
-                              setCancellingIds(prev => new Set(prev).add(order.id))
-                              cancelOrder.mutate(order.id, {
-                                onSettled: () => {
-                                  setCancellingIds(prev => {
-                                    const next = new Set(prev)
-                                    next.delete(order.id)
-                                    return next
-                                  })
-                                }
-                              })
-                            }}
-                            disabled={cancellingIds.has(order.id)}
-                          >                            {cancellingIds.has(order.id) ? '...' : 'Cancel'}
-                          </Button>
-                        )}
-                      </div>
+                      )}
                     </td>
                   </tr>
                 )

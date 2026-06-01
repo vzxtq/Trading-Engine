@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { cn, formatNumber, numericClass } from '@/lib/utils'
 import { useBinanceOrderBook } from '../api/trading.api'
 
 interface OrderBookProps {
@@ -39,7 +40,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
   )
 
   return (
-    <div className="flex flex-col text-xs font-mono select-none w-full shrink-0">
+    <div className="flex flex-col text-xs select-none w-full shrink-0">
       {/* Header */}
       <div className="p-2 border-b border-border flex justify-between items-center bg-card shrink-0">
         <span className="text-sm font-semibold text-foreground">Order Book</span>
@@ -70,16 +71,21 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
                 return (
                   <div
                     key={`ask-${i}`}
-                    className={`relative h-5 flex justify-between items-center px-2 hover:bg-accent transition-colors cursor-pointer ${isTop ? 'font-bold' : ''}`}
+                    className="relative h-5 flex justify-between items-center px-2 hover:bg-accent transition-colors cursor-pointer"
                   >
                     <div
                       className="absolute right-0 top-0 bottom-0 bg-red-500/10 transition-all duration-300"
                       style={{ width: `${(entry.quantity / maxQty) * 100}%` }}
                     />
-                    <span className={`relative z-10 ${isTop ? 'text-red-400' : 'text-red-500/80'}`}>
-                      {entry.price.toFixed(2)}
+                    <span
+                      className={cn(
+                        'relative z-10 font-normal tabular-nums',
+                        isTop ? 'text-red-400' : 'text-red-500/80'
+                      )}
+                    >
+                      {formatNumber(entry.price)}
                     </span>
-                    <span className="text-foreground/70 relative z-10">{entry.quantity.toFixed(4)}</span>
+                    <span className={cn('relative z-10', numericClass)}>{formatNumber(entry.quantity)}</span>
                   </div>
                 )
               })}
@@ -90,8 +96,10 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
           {spread !== null ? (
             <>
               <span className="text-muted-foreground font-semibold text-xs">Spread</span>
-              <span className="text-foreground">{spread.toFixed(2)}</span>
-              <span className="text-muted-foreground text-xs">({spreadPct!.toFixed(3)}%)</span>
+              <span className={numericClass}>{formatNumber(spread)}</span>
+              <span className="text-muted-foreground text-xs font-normal tabular-nums">
+                ({formatNumber(spreadPct!, 3)}%)
+              </span>
             </>
           ) : (
             <span className="text-muted-foreground/40 text-xs">—</span>
@@ -113,16 +121,21 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
                 return (
                   <div
                     key={`bid-${i}`}
-                    className={`relative h-5 flex justify-between items-center px-2 hover:bg-accent transition-colors cursor-pointer ${isTop ? 'font-bold' : ''}`}
+                    className="relative h-5 flex justify-between items-center px-2 hover:bg-accent transition-colors cursor-pointer"
                   >
                     <div
                       className="absolute right-0 top-0 bottom-0 bg-green-500/10 transition-all duration-300"
                       style={{ width: `${(entry.quantity / maxQty) * 100}%` }}
                     />
-                    <span className={`relative z-10 ${isTop ? 'text-green-400' : 'text-green-500/80'}`}>
-                      {entry.price.toFixed(2)}
+                    <span
+                      className={cn(
+                        'relative z-10 font-normal tabular-nums',
+                        isTop ? 'text-green-400' : 'text-green-500/80'
+                      )}
+                    >
+                      {formatNumber(entry.price)}
                     </span>
-                    <span className="text-foreground/70 relative z-10">{entry.quantity.toFixed(4)}</span>
+                    <span className={cn('relative z-10', numericClass)}>{formatNumber(entry.quantity)}</span>
                   </div>
                 )
               })}

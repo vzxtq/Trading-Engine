@@ -8,7 +8,7 @@ import {
   UserCircle,
   UserCog
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, dangerTextClass } from '@/lib/utils'
 import { useAuth } from '../hooks/useAuth'
 import { useAccount } from '../api/auth.api'
 
@@ -104,10 +104,13 @@ export const ProfileSidebar = ({ activeTab, onTabChange }: ProfileSidebarProps) 
       <div className="mt-auto p-6">
         <button 
           onClick={logout}
-          className="flex items-center gap-3 text-muted-foreground hover:text-destructive transition-colors text-sm font-medium"
+          className={cn(
+            'flex items-center gap-3 text-muted-foreground transition-colors text-sm font-medium',
+            'hover:text-red-500 dark:hover:text-red-400'
+          )}
         >
           <LogOut size={18} />
-          <span className="text-destructive">Sign out</span>
+          <span className={dangerTextClass}>Sign out</span>
         </button>
       </div>
     </aside>

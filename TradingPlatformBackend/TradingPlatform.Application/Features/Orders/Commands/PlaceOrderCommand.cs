@@ -25,17 +25,19 @@ public class PlaceOrderCommand : ICommand<Result<PlaceOrderResponseDto>>
     public decimal Quantity { get; set; }
     public OrderSide Side { get; set; }
     public OrderType Type { get; set; }
+    public string? IdempotencyKey { get; set; }
 }
 
 public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand, Result<PlaceOrderResponseDto>>
 {
-    private readonly IMatchingEngineQueue _queue;
+    private readonly IMatchingEngineQueue _matchingEngineQueue;
     private readonly IOrderRepository _orderRepository;
     private readonly IAccountRepository _accountRepository;
     private readonly IPositionRepository _positionRepository;
     private readonly IUserResolverService _userResolver;
     private readonly ISymbolReadRepository _symbolRepository;
     private readonly IOrderBookSnapshotProvider _snapshotProvider;
+    private readonly IUnitOfWork _unitOfWork;
 
     public PlaceOrderCommandHandler(
         IMatchingEngineQueue queue,
@@ -44,15 +46,17 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
         IPositionRepository positionRepository,
         IUserResolverService userResolver,
         ISymbolReadRepository symbolRepository,
-        IOrderBookSnapshotProvider snapshotProvider)
+        IOrderBookSnapshotProvider snapshotProvider,
+        IUnitOfWork unitOfWork)
     {
-        _queue = queue;
+        _matchingEngineQueue = queue;
         _orderRepository = orderRepository;
         _accountRepository = accountRepository;
         _positionRepository = positionRepository;
         _userResolver = userResolver;
         _symbolRepository = symbolRepository;
         _snapshotProvider = snapshotProvider;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result<PlaceOrderResponseDto>> Handle(
@@ -60,88 +64,101 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
         CancellationToken cancellationToken)
     {
         var userId = _userResolver.GetUserId();
-        
+
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            var existingOrder = await _orderRepository.GetByIdempotencyKeyAsync(userId, request.IdempotencyKey, cancellationToken);
+            if (existingOrder != null)
+            {
+                return Result<PlaceOrderResponseDto>.Success(new PlaceOrderResponseDto
+                {
+                    OrderId = existingOrder.Id,
+                    Status = existingOrder.Status,
+                    Message = "Order already placed (idempotent)"
+                });
+            }
+        }
+
+        var symbolEntity = await _symbolRepository.GetSymbolByNameAsync(request.Symbol, cancellationToken);
+        if (symbolEntity == null)
+            return Result<PlaceOrderResponseDto>.Failure("Symbol not found");
+
+        var symbolValue = new Symbol(request.Symbol);
+        var price = request.Type == OrderType.Limit ? new Price(request.Price!.Value) : null;
+        var quantity = new Quantity(request.Quantity);
+
+        OrderDomain? order = null;
+        decimal domainMaxTotalCost = 0;
+
         try
         {
-            var symbolEntity = await _symbolRepository.GetSymbolByNameAsync(request.Symbol, cancellationToken);
-            if (symbolEntity == null)
-                return Result<PlaceOrderResponseDto>.Failure("Symbol not found");
-
-            var symbolValue = new Symbol(request.Symbol);
-            var price = request.Type == OrderType.Limit ? new Price(request.Price!.Value) : null;
-            var quantity = new Quantity(request.Quantity);
-
-            var account = await _accountRepository.GetByIdAsync(userId, cancellationToken);
-            if (account is null)
-                return Result<PlaceOrderResponseDto>.Failure("Account not found");
-
-            // Reserve funds for buy orders up front.
-            decimal domainMaxTotalCost = 0;
-            if (request.Side == OrderSide.Buy)
+            var result = await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
-                if (request.Type == OrderType.Limit)
+                var account = await _accountRepository.GetByIdAsync(userId, ct);
+                if (account is null)
+                    return Result<PlaceOrderResponseDto>.Failure("Account not found");
+
+                if (request.Side == OrderSide.Buy)
                 {
-                    domainMaxTotalCost = price!.Value * quantity.Value;
-                }
-                else // Market order
-                {
-                    var snapshot = await _snapshotProvider.GetSnapshotAsync(symbolValue, cancellationToken);
-                    var asks = snapshot.Asks;
-                    long costEstimateEngineUnits = 0;
-                    long remainingEngineQuantity = quantity.Value.ToEngineQuantity();
-                    
-                    foreach (var ask in asks)
+                    if (request.Type == OrderType.Limit)
                     {
-                        var fillQuantity = Math.Min(remainingEngineQuantity, ask.TotalQuantity);
-                        costEstimateEngineUnits = checked(costEstimateEngineUnits + (fillQuantity * ask.Price));
-                        remainingEngineQuantity -= fillQuantity;
-                        if (remainingEngineQuantity == 0) break;
+                        domainMaxTotalCost = price!.Value * quantity.Value;
                     }
-                    
-                    if (remainingEngineQuantity > 0)
-                        return Result<PlaceOrderResponseDto>.Failure("Insufficient liquidity for market order");
-                        
-                    // 5% buffer for slippage without decimal arithmetic
-                    var costWithSlippageEngineUnits = checked(costEstimateEngineUnits + costEstimateEngineUnits / 20);
-                    domainMaxTotalCost = costWithSlippageEngineUnits.ToDomainNotional();
-                }
+                    else // Market order
+                    {
+                        var snapshot = await _snapshotProvider.GetSnapshotAsync(symbolValue, ct);
+                        var asks = snapshot.Asks;
+                        long costEstimateEngineUnits = 0;
+                        long remainingEngineQuantity = quantity.Value.ToEngineQuantity();
 
-                var money = new Money(domainMaxTotalCost, account.Balance.Currency);
-                account.ReserveFunds(money);
-                await _accountRepository.UpdateAsync(account, cancellationToken);
-            }
-            else if (request.Side == OrderSide.Sell)
-            {
-                var position = await _positionRepository.GetUserPositionForSymbolAsync(userId, request.Symbol, cancellationToken);
-                if (position == null || position.AvailableQuantity.IsLessThan(quantity))
+                        foreach (var ask in asks)
+                        {
+                            var fillQuantity = Math.Min(remainingEngineQuantity, ask.TotalQuantity);
+                            costEstimateEngineUnits = checked(costEstimateEngineUnits + (fillQuantity * ask.Price));
+                            remainingEngineQuantity -= fillQuantity;
+                            if (remainingEngineQuantity == 0) break;
+                        }
+
+                        if (remainingEngineQuantity > 0)
+                            return Result<PlaceOrderResponseDto>.Failure("Insufficient liquidity for market order");
+
+                        var costWithSlippageEngineUnits = checked(costEstimateEngineUnits + costEstimateEngineUnits / 20);
+                        domainMaxTotalCost = costWithSlippageEngineUnits.ToDomainNotional();
+                    }
+
+                    var money = new Money(domainMaxTotalCost, account.Balance.Currency);
+                    account.ReserveFunds(money);
+                    await _accountRepository.UpdateAsync(account, ct);
+                }
+                else if (request.Side == OrderSide.Sell)
                 {
-                    return Result<PlaceOrderResponseDto>.Failure("Insufficient position");
+                    var position = await _positionRepository.GetUserPositionForSymbolAsync(userId, request.Symbol, ct);
+                    if (position == null || position.AvailableQuantity.IsLessThan(quantity))
+                        return Result<PlaceOrderResponseDto>.Failure("Insufficient position");
+
+                    position.Reserve(quantity);
+                    await _positionRepository.UpdateAsync(position, ct);
                 }
-                
-                position.Reserve(quantity);
-                await _positionRepository.UpdateAsync(position, cancellationToken);
-            }
 
-            // For Buy orders, reservedAmount is the monetary amount reserved.
-            // For Sell orders, reservedAmount is the quantity of shares reserved.
-            decimal reservedAmount = request.Side == OrderSide.Buy 
-                ? domainMaxTotalCost 
-                : quantity.Value;
+                decimal reservedAmount = request.Side == OrderSide.Buy ? domainMaxTotalCost : quantity.Value;
 
-            var order = OrderDomain.Create(
-                userId,
-                symbolEntity.Id,
-                price,
-                quantity,
-                request.Side,
-                request.Type,
-                reservedAmount);
+                order = OrderDomain.Create(userId, symbolEntity.Id, price, quantity, request.Side, request.Type, reservedAmount, request.IdempotencyKey);
+                await _orderRepository.AddAsync(order, ct);
 
-            await _orderRepository.AddAsync(order, cancellationToken);
+                return Result<PlaceOrderResponseDto>.Success(new PlaceOrderResponseDto
+                {
+                    OrderId = order.Id,
+                    Status = OrderStatus.Open,
+                    Message = "Order queued for matching"
+                });
+            }, cancellationToken);
+
+            if (result.IsFailure)
+                return result;
 
             var command = new AddOrderCommand
             {
-                OrderId = order.Id,
+                OrderId = order!.Id,
                 UserId = userId,
                 Symbol = symbolValue,
                 SymbolId = symbolEntity.Id,
@@ -153,19 +170,13 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
                 ReceivedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
 
-            await _queue.EnqueueAsync(command, cancellationToken);
+            await _matchingEngineQueue.EnqueueAsync(command, cancellationToken);
 
-            return Result<PlaceOrderResponseDto>.Success(new PlaceOrderResponseDto
-            {
-                OrderId = order.Id,
-                Status = OrderStatus.Open,
-                Message = "Order queued for matching"
-            });
+            return result;
         }
         catch (Exception ex)
         {
-            return Result<PlaceOrderResponseDto>.Failure(
-                $"Failed to place order: {ex.Message}");
+            return Result<PlaceOrderResponseDto>.Failure($"Failed to place order: {ex.Message}");
         }
     }
 }

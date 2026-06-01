@@ -7,18 +7,36 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number, currency: Currency): string {
-  const formattedAmount = amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-  const label = CURRENCY_LABELS[currency] || ""
-  return `${formattedAmount} ${label}`
+/** Visible red for cancel, logout, and other destructive actions (readable on dark backgrounds). */
+export const dangerTextClass =
+  'text-red-500 dark:text-red-400'
+
+export const dangerActionClass =
+  'text-red-500 hover:text-red-600 hover:bg-red-500/10 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10'
+
+export const dangerMenuItemClass =
+  'text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-300'
+
+/** Display style for numeric values: regular weight, muted gray, tabular alignment. */
+export const numericClass = 'font-normal text-muted-foreground tabular-nums'
+
+/** e.g. 71500.00 — dot decimal, no thousands separator, fixed fraction digits. */
+export function formatNumber(value: number, fractionDigits = 2): string {
+  if (!Number.isFinite(value)) {
+    return (0).toFixed(fractionDigits)
+  }
+  return value.toFixed(fractionDigits)
 }
 
-export const formatAmount = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
+export const formatAmount = (amount: number, fractionDigits = 2): string =>
+  formatNumber(amount, fractionDigits)
+
+export function formatUsd(amount: number, fractionDigits = 2): string {
+  return `$${formatNumber(amount, fractionDigits)}`
+}
+
+export function formatCurrency(amount: number, currency: Currency, fractionDigits = 2): string {
+  const label = CURRENCY_LABELS[currency] || ''
+  const formatted = formatNumber(amount, fractionDigits)
+  return label ? `${formatted} ${label}` : formatted
 }

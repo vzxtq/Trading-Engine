@@ -32,8 +32,14 @@ public class OrdersController : ApiController
     [EnableRateLimiting("OrderPlacement")]
     public async Task<IActionResult> PlaceOrder(
         [FromBody] PlaceOrderCommand command,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         CancellationToken ct)
     {
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            command.IdempotencyKey = idempotencyKey;
+        }
+
         var result = await _mediator.Send(command, ct);
         return result.ToActionResult();
     }

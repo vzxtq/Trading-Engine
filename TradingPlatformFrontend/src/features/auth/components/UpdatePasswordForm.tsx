@@ -2,6 +2,7 @@ import { Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn, dangerTextClass } from '@/lib/utils'
 import { usePasswordForm } from '../hooks/usePasswordForm'
 
 export const UpdatePasswordForm = () => {
@@ -42,7 +43,7 @@ export const UpdatePasswordForm = () => {
               className="bg-card border-border text-foreground h-[52px] px-4 text-base focus-visible:ring-1 focus-visible:ring-muted-foreground/30 placeholder:text-muted-foreground/30" 
             />
             {form.formState.errors.confirmPassword && (
-              <p className="text-destructive text-sm font-medium mt-2">
+              <p className={cn(dangerTextClass, 'text-sm font-medium mt-2')}>
                 {form.formState.errors.confirmPassword.message}
               </p>
             )}

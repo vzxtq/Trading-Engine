@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createChart, ColorType, CandlestickSeries, type ISeriesApi } from 'lightweight-charts'
 import { useThemeStore } from '@/store/theme'
 import { useTradesStore } from '@/store/trades'
+import { formatNumber } from '@/lib/utils'
 import { useCandles } from '../api/trading.api'
 
 interface PriceChartProps {
@@ -135,9 +136,11 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol }) => {
         </div>
         <div className="flex gap-2">
           {displayPrice !== undefined ? (
-            <span className="text-xs text-green-500 font-mono">${displayPrice.toFixed(2)}</span>
+            <span className="text-xs font-normal tabular-nums text-green-500">
+              ${formatNumber(displayPrice)}
+            </span>
           ) : (
-            <span className="text-xs text-muted-foreground/50 font-mono">--</span>
+            <span className="text-xs text-muted-foreground/50 font-normal">--</span>
           )}
         </div>
       </div>

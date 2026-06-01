@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { AuthBrandLogo } from './AuthBrandLogo'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export const RegisterForm: React.FC = () => {
@@ -49,7 +50,8 @@ export const RegisterForm: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
+      <AuthBrandLogo />
       <Card className="w-full max-w-lg border-border bg-card text-foreground">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Create your account</CardTitle>

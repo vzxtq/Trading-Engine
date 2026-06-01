@@ -1,4 +1,5 @@
 import React from 'react'
+import { cn, formatNumber, numericClass } from '@/lib/utils'
 import { useTradesStore } from '@/store/trades'
 import { OrderSide } from '@/types/enums/order-side.enum'
 
@@ -17,7 +18,7 @@ export const RecentTrades: React.FC<RecentTradesProps> = ({ symbol }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col text-xs font-mono overflow-hidden">
+    <div className="flex-1 flex flex-col text-xs overflow-hidden">
       <div className="p-2 border-b border-border bg-muted flex justify-between text-muted-foreground font-semibold text-xs">
         <span className="w-1/3 text-left">Price</span>
         <span className="w-1/3 text-right">Size</span>
@@ -27,12 +28,15 @@ export const RecentTrades: React.FC<RecentTradesProps> = ({ symbol }) => {
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {filteredTrades.map((trade, i) => (
           <div key={`${trade.tradeId}-${i}`} className="flex justify-between items-center px-2 h-6 hover:bg-accent transition-colors">
-            <span className={`w-1/3 text-left ${trade.side === OrderSide.Buy ? 'text-green-500' : 'text-red-500'}`}>
-              {trade.price.toFixed(2)}
+            <span
+              className={cn(
+                'w-1/3 text-left font-normal tabular-nums',
+                trade.side === OrderSide.Buy ? 'text-green-500' : 'text-red-500'
+              )}
+            >
+              {formatNumber(trade.price)}
             </span>
-            <span className="w-1/3 text-right text-foreground">
-              {trade.quantity.toFixed(4)}
-            </span>
+            <span className={cn('w-1/3 text-right', numericClass)}>{formatNumber(trade.quantity)}</span>
             <span className="w-1/3 text-right text-muted-foreground">
               {formatTime(trade.executedAt)}
             </span>

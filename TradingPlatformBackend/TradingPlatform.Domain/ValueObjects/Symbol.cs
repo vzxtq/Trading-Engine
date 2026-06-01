@@ -26,8 +26,8 @@ public class Symbol : IEquatable<Symbol>
         if (trimmed.Length < MinLength || trimmed.Length > MaxLength)
             throw new ArgumentException($"Symbol must be between {MinLength} and {MaxLength} characters", nameof(value));
 
-        if (!trimmed.All(char.IsLetter))
-            throw new ArgumentException("Symbol must contain only letters", nameof(value));
+        if (!System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^[A-Z0-9.\-&]+$"))
+            throw new ArgumentException("Symbol can only contain letters, numbers, dots, hyphens, and ampersands", nameof(value));
 
         Value = trimmed;
     }

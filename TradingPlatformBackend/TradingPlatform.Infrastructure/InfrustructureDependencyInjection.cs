@@ -52,6 +52,7 @@ public static class InfrustructureDependencyInjection
         services.AddScoped<ITradeReadRepository, TradeReadRepository>();
         services.AddScoped<ISymbolReadRepository, SymbolReadRepository>();
         services.AddScoped<IExecutionResultHandler, PersistenceExecutionResultHandler>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();

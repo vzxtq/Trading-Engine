@@ -14,8 +14,8 @@ interface UserOrderQueryParams {
   'Filter.Status'?: OrderStatus
   'Filter.Search'?: string
 
-  'SortBy'?: string
-  'SortOrder'?: 'asc' | 'desc'
+  SortingColumn?: string
+  SortingDirection?: 'Ascending' | 'Descending'
 }
 
 export const useOrderBook = (symbol: string) => {
@@ -37,6 +37,7 @@ export const useOrderBook = (symbol: string) => {
         const aggregate = (orders: OrderDto[]) => {
             const levels: Record<number, number> = {}
             orders.forEach(o => {
+                if (o.price == null) return
                 levels[o.price] = (levels[o.price] || 0) + o.remainingQuantity
             })
             return Object.entries(levels).map(([price, quantity]) => ({
@@ -56,12 +57,16 @@ export const useOrderBook = (symbol: string) => {
 export const usePlaceOrder = () => {
   return useMutation({
     mutationFn: async (order: PlaceOrderRequest) => {
+      const idempotencyKey = crypto.randomUUID()
       const response = await api.post<ApiResponse<{ orderId: string; status: string; message: string }>>('/orders', {
         ...order,
         side: order.side,
         type: order.type
       }, {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey
+        }
       })
       return response.data
     },

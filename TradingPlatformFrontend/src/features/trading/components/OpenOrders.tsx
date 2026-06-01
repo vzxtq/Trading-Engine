@@ -1,4 +1,5 @@
 import React from 'react'
+import { cn, dangerActionClass, formatNumber, numericClass } from '@/lib/utils'
 import { useUserOrders, useCancelOrder } from '../api/trading.api'
 import { OrderSide, OrderSideLabels } from '@/types/enums/order-side.enum'
 import { OrderStatus } from '@/types/enums' // Corrected import path for OrderStatus
@@ -45,11 +46,13 @@ export const OpenOrders: React.FC<OpenOrdersProps> = () => {
                 {OrderSideLabels[order.side]}
               </span>
               <span className="w-[15%] font-medium text-foreground">{order.symbolName}</span>
-              <span className="w-[20%] text-right font-mono text-foreground">{order.price.amount.toFixed(2)}</span>
-              <span className="w-[20%] text-right font-mono text-foreground">
-                {(order.filledQuantity ?? 0).toFixed(2)}
+              <span className={cn('w-[20%] text-right', numericClass)}>{formatNumber(order.price.amount)}</span>
+              <span className={cn('w-[20%] text-right', numericClass)}>
+                {formatNumber(order.filledQuantity ?? 0)}
               </span>
-              <span className="w-[20%] text-right font-mono text-muted-foreground">{(order.price.amount * order.quantity).toFixed(2)}</span>
+              <span className={cn('w-[20%] text-right', numericClass)}>
+                {formatNumber(order.price.amount * order.quantity)}
+              </span>
               <div className="w-[15%] text-right">
                 <button
                   onClick={() => {
@@ -65,7 +68,7 @@ export const OpenOrders: React.FC<OpenOrdersProps> = () => {
                     })
                   }}
                   disabled={cancellingIds.has(order.id)}
-                  className="text-destructive hover:text-destructive font-semibold text-xs transition-colors disabled:opacity-50"
+                  className={cn(dangerActionClass, 'font-semibold text-xs transition-colors disabled:opacity-50')}
                 >
                   {cancellingIds.has(order.id) ? '...' : 'Cancel'}
                 </button>

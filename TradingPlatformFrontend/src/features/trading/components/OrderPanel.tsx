@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { OrderTypeLabels } from '@/types/enums/order-type.enum'
+import { cn, formatCurrency, formatNumber, numericClass } from '@/lib/utils'
+import { Currency } from '@/types/enums'
 
 const ORDER_TYPES = [OrderType.Limit, OrderType.Market] as const
 
@@ -87,11 +89,13 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
           <span className="text-muted-foreground font-semibold">
             {side === OrderSide.Buy ? 'Available balance' : 'Available position'}
           </span>
-          <span className="text-foreground font-mono">
-            {side === OrderSide.Buy 
-              ? `${account?.availableBalance?.amount.toLocaleString()} ${account?.availableBalance?.currency === 0 ? 'USD' : 'EUR'}`
-              : `${currentPosition?.quantity || 0} ${symbol.split('/')[0]}`
-            }
+          <span className={numericClass}>
+            {side === OrderSide.Buy && account
+              ? formatCurrency(
+                  account.availableBalance.amount,
+                  account.availableBalance.currency as Currency
+                )
+              : `${formatNumber(currentPosition?.quantity || 0)} ${symbol.split('/')[0]}`}
           </span>
         </div>
 
@@ -122,7 +126,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="bg-background border-border text-foreground font-mono h-9"
+              className={cn('bg-background border-border h-9', numericClass)}
             />
             <span className="absolute right-3 top-2 text-xs text-muted-foreground font-semibold">USD</span>
           </div>
@@ -138,7 +142,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
               step="0.0001"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              className="bg-background border-border text-foreground font-mono h-9"
+              className={cn('bg-background border-border h-9', numericClass)}
             />
             <span className="absolute right-3 top-2 text-xs text-muted-foreground font-semibold">{symbol}</span>
           </div>
@@ -160,11 +164,11 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
         <div className="pt-4 border-t border-border space-y-1.5 text-xs">
           <div className="flex justify-between">
             <span className="text-muted-foreground font-semibold">Total</span>
-            <span className="text-foreground font-mono">{total.toFixed(2)} USD</span>
+            <span className={numericClass}>{formatNumber(total)} USD</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground font-semibold">Fee (0.1%)</span>
-            <span className="text-foreground font-mono">{fee.toFixed(2)} USD</span>
+            <span className={numericClass}>{formatNumber(fee)} USD</span>
           </div>
         </div>
         )}

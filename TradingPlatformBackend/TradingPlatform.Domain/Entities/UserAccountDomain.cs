@@ -146,7 +146,6 @@ public class UserAccountDomain : AggregateRoot
             throw new InvalidOperationException("Reserved balance is insufficient.");
 
         ReservedBalance -= amount;
-        Balance -= amount;
 
         UpdatedAt = DateTime.UtcNow;
     }

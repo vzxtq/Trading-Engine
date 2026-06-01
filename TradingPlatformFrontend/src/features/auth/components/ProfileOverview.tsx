@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/store/auth'
 import { useAccount } from '../api/auth.api'
-import { formatAmount } from '@/lib/utils'
+import { cn, formatAmount, numericClass } from '@/lib/utils'
 
 export const ProfileOverview = () => {
   const userId = useAuthStore((state) => state.userId)
@@ -13,7 +13,7 @@ export const ProfileOverview = () => {
         <div className="bg-card p-6 rounded-xl border border-border">
           <span className="text-xs font-semibold text-muted-foreground block mb-4">Balance</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-foreground">
+            <span className={cn(numericClass, 'text-3xl')}>
               {account ? formatAmount(account.balance.amount) : '0.00'}
             </span>
             <span className="text-sm font-bold text-muted-foreground">{account?.balance.currency}</span>
@@ -22,7 +22,7 @@ export const ProfileOverview = () => {
         <div className="bg-card p-6 rounded-xl border border-border">
           <span className="text-xs font-semibold text-muted-foreground block mb-4">Reserved</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-amber-500">
+            <span className={cn(numericClass, 'text-3xl text-amber-500')}>
               {account ? formatAmount(account.reservedBalance.amount) : '0.00'}
             </span>
             <span className="text-sm font-bold text-muted-foreground">{account?.reservedBalance.currency}</span>
@@ -31,7 +31,7 @@ export const ProfileOverview = () => {
         <div className="bg-card p-6 rounded-xl border border-border">
           <span className="text-xs font-semibold text-muted-foreground block mb-4">Available</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-green-500">
+            <span className={cn(numericClass, 'text-3xl text-green-500')}>
               {account ? formatAmount(account.availableBalance.amount) : '0.00'}
             </span>
             <span className="text-sm font-bold text-muted-foreground">{account?.availableBalance.currency}</span>
@@ -40,7 +40,7 @@ export const ProfileOverview = () => {
         <div className="bg-card p-6 rounded-xl border border-border">
           <span className="text-xs font-semibold text-muted-foreground block mb-4">Total P&L</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-green-500">+0.00</span>
+            <span className={cn(numericClass, 'text-3xl text-green-500')}>+0.00</span>
             <span className="text-sm font-bold text-muted-foreground">{account?.balance.currency}</span>
           </div>
         </div>

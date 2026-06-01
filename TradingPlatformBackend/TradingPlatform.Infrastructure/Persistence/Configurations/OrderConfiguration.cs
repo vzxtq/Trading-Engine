@@ -19,6 +19,15 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<OrderDomain>
         builder.HasIndex(o => new { o.UserId, o.CreatedAt })
             .HasDatabaseName("IX_Orders_User_CreatedAt");
 
+        builder.Property(o => o.IdempotencyKey)
+            .HasMaxLength(100)
+            .IsRequired(false);
+
+        builder.HasIndex(o => new { o.UserId, o.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL")
+            .HasDatabaseName("IX_Orders_UserId_IdempotencyKey");
+
         builder.Property(o => o.UserId)
             .IsRequired();
 

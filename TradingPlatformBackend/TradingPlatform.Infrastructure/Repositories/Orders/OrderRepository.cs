@@ -15,6 +15,12 @@ public sealed class OrderRepository : IOrderRepository
         _dbContext = dbContext;
     }
 
+    public async Task<OrderDomain?> GetByIdempotencyKeyAsync(Guid userId, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Orders
+            .FirstOrDefaultAsync(o => o.UserId == userId && o.IdempotencyKey == idempotencyKey, cancellationToken);
+    }
+
     public async Task AddAsync(OrderDomain order, CancellationToken cancellationToken)
     {
         await _dbContext.Orders.AddAsync(order, cancellationToken);
