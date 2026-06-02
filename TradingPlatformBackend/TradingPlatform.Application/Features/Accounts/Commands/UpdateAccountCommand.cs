@@ -21,15 +21,18 @@ public sealed class UpdateAccountCommandHandler : ICommandHandler<UpdateAccountC
     private readonly IAccountRepository _accountRepository;
     private readonly IUserIdentityRepository _identityRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IUnitOfWork _unitOfWork;
 
     public UpdateAccountCommandHandler(
-        IAccountRepository accountRepository, 
+        IAccountRepository accountRepository,
         IUserIdentityRepository identityRepository,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IUnitOfWork unitOfWork)
     {
         _accountRepository = accountRepository;
         _identityRepository = identityRepository;
         _passwordHasher = passwordHasher;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result> Handle(UpdateAccountCommand request, CancellationToken cancellationToken)
@@ -73,6 +76,7 @@ public sealed class UpdateAccountCommandHandler : ICommandHandler<UpdateAccountC
         }
 
         await _accountRepository.UpdateAsync(account, cancellationToken);
+        await _unitOfWork.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

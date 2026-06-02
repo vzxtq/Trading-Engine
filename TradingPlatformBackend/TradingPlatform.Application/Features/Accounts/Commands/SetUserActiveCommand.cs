@@ -1,4 +1,5 @@
 using TradingEngine.Application.Common;
+using TradingEngine.Application.Interfaces;
 using TradingEngine.Application.Interfaces.Accounts;
 
 namespace TradingEngine.Application.Features.Accounts.Commands;
@@ -8,10 +9,14 @@ public sealed record SetUserActiveCommand(Guid UserId, bool IsActive) : ICommand
 public sealed class SetUserActiveCommandHandler : ICommandHandler<SetUserActiveCommand, Result>
 {
     private readonly IAccountRepository _accountRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public SetUserActiveCommandHandler(IAccountRepository accountRepository)
+    public SetUserActiveCommandHandler(
+        IAccountRepository accountRepository,
+        IUnitOfWork unitOfWork)
     {
         _accountRepository = accountRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result> Handle(SetUserActiveCommand request, CancellationToken cancellationToken)
@@ -32,6 +37,7 @@ public sealed class SetUserActiveCommandHandler : ICommandHandler<SetUserActiveC
         }
 
         await _accountRepository.UpdateAsync(account, cancellationToken);
+        await _unitOfWork.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

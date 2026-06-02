@@ -14,15 +14,18 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
     private readonly IUserIdentityRepository _identityRepository;
     private readonly IJwtTokenGenerator _tokenGenerator;
     private readonly JwtSettings _jwtOptions;
+    private readonly IUnitOfWork _unitOfWork;
 
     public RefreshTokenCommandHandler(
         IUserIdentityRepository identityRepository,
         IJwtTokenGenerator tokenGenerator,
-        IOptions<JwtSettings> jwtOptions)
+        IOptions<JwtSettings> jwtOptions,
+        IUnitOfWork unitOfWork)
     {
         _identityRepository = identityRepository;
         _tokenGenerator = tokenGenerator;
         _jwtOptions = jwtOptions.Value;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result<LoginResponseDto>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
@@ -40,6 +43,7 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
 
         identity.UpdateRefreshToken(newRefreshToken, refreshTokenExpiry);
         await _identityRepository.UpdateAsync(identity, cancellationToken);
+        await _unitOfWork.CommitAsync(cancellationToken);
 
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.ExpiryMinutes).ToUnixTimeMilliseconds();
 

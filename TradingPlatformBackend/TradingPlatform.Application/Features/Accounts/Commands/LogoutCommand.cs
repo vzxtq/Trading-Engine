@@ -10,11 +10,16 @@ public sealed class LogoutCommandHandler : ICommandHandler<LogoutCommand, Result
 {
     private readonly IUserIdentityRepository _identityRepository;
     private readonly IUserResolverService _userResolverService;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public LogoutCommandHandler(IUserIdentityRepository identityRepository, IUserResolverService userResolverService)
+    public LogoutCommandHandler(
+        IUserIdentityRepository identityRepository,
+        IUserResolverService userResolverService,
+        IUnitOfWork unitOfWork)
     {
         _identityRepository = identityRepository;
         _userResolverService = userResolverService;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result> Handle(LogoutCommand request, CancellationToken cancellationToken)
@@ -26,6 +31,7 @@ public sealed class LogoutCommandHandler : ICommandHandler<LogoutCommand, Result
         {
             identity.InvalidateRefreshToken();
             await _identityRepository.UpdateAsync(identity, cancellationToken);
+            await _unitOfWork.CommitAsync(cancellationToken);
         }
 
         return Result.Success();

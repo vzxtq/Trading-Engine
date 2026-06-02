@@ -15,17 +15,20 @@ public sealed class LoginCommandHandler : ICommandHandler<LoginCommand, Result<L
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _tokenGenerator;
     private readonly JwtSettings _jwtOptions;
+    private readonly IUnitOfWork _unitOfWork;
 
     public LoginCommandHandler(
         IUserIdentityRepository identityRepository,
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator tokenGenerator,
-        IOptions<JwtSettings> jwtOptions)
+        IOptions<JwtSettings> jwtOptions,
+        IUnitOfWork unitOfWork)
     {
         _identityRepository = identityRepository;
         _passwordHasher = passwordHasher;
         _tokenGenerator = tokenGenerator;
         _jwtOptions = jwtOptions.Value;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result<LoginResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -47,6 +50,7 @@ public sealed class LoginCommandHandler : ICommandHandler<LoginCommand, Result<L
 
         identity.UpdateRefreshToken(refreshToken, refreshTokenExpiry);
         await _identityRepository.UpdateAsync(identity, cancellationToken);
+        await _unitOfWork.CommitAsync(cancellationToken);
 
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.ExpiryMinutes).ToUnixTimeMilliseconds();
 

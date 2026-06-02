@@ -12,6 +12,9 @@ public class UnitOfWork : IUnitOfWork
         _dbContext = dbContext;
     }
 
+    public Task CommitAsync(CancellationToken cancellationToken = default)
+        => _dbContext.SaveChangesAsync(cancellationToken);
+
     //TODO not sure about this auto rollback
     public async Task<T> ExecuteInTransactionAsync<T>(
         Func<CancellationToken, Task<T>> operation,

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TradingEngine.Application.Interfaces.Accounts;
 using TradingEngine.Infrastructure.Persistence;
 using TradingEngine.Domain.Entities;
@@ -19,7 +19,6 @@ public class AccountRepository : IAccountRepository
         CancellationToken cancellationToken)
     {
         await _dbContext.UserAccounts.AddAsync(account, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<UserAccountDomain?> GetByIdAsync(
@@ -29,11 +28,11 @@ public class AccountRepository : IAccountRepository
         return await _dbContext.UserAccounts.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task UpdateAsync(
+    public Task UpdateAsync(
         UserAccountDomain account,
         CancellationToken cancellationToken)
     {
         _dbContext.UserAccounts.Update(account);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 }

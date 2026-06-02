@@ -27,15 +27,14 @@ public sealed class PositionRepository : IPositionRepository
             .FirstOrDefaultAsync(p => p.UserId == userId && p.SymbolValue == symbolObj, cancellationToken);
     }
 
-    public async Task UpdateAsync(PositionDomain position, CancellationToken cancellationToken)
+    public Task UpdateAsync(PositionDomain position, CancellationToken cancellationToken)
     {
         _dbContext.Positions.Update(position);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 
     public async Task AddAsync(PositionDomain position, CancellationToken cancellationToken)
     {
         await _dbContext.Positions.AddAsync(position, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

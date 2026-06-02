@@ -145,6 +145,8 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
                 order = OrderDomain.Create(userId, symbolEntity.Id, price, quantity, request.Side, request.Type, reservedAmount, request.IdempotencyKey);
                 await _orderRepository.AddAsync(order, ct);
 
+                await _unitOfWork.CommitAsync(ct);
+
                 return Result<PlaceOrderResponseDto>.Success(new PlaceOrderResponseDto
                 {
                     OrderId = order.Id,

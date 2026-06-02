@@ -38,12 +38,11 @@ public sealed class UserIdentityRepository : IUserIdentityRepository
     public async Task AddAsync(UserIdentityDomain identity, CancellationToken cancellationToken)
     {
         await _dbContext.UserIdentities.AddAsync(identity, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(UserIdentityDomain identity, CancellationToken cancellationToken)
+    public Task UpdateAsync(UserIdentityDomain identity, CancellationToken cancellationToken)
     {
         _dbContext.UserIdentities.Update(identity);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 }
