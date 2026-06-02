@@ -4,8 +4,6 @@
 
 <br />
 
-# Trading Engine
-
 **A real-time trading platform, built end-to-end from matching engine to UI**
 
 </div>
