@@ -133,7 +133,7 @@ public class PositionsAndTradesTests : IClassFixture<TradingPlatformFactory>
 
     private async Task<string> RegisterAndLoginAsync(string email, string password, string first, string last)
     {
-        var registerCommand = new RegisterUserCommand(email, password, first, last, 100000, Currency.USD);
+        var registerCommand = new RegisterUserCommand(email, password, first, last);
         var regResp = await _client.PostAsJsonAsync("/api/accounts/register", registerCommand);
         regResp.EnsureSuccessStatusCode();
 
@@ -143,8 +143,15 @@ public class PositionsAndTradesTests : IClassFixture<TradingPlatformFactory>
 
         var content = await logResp.Content.ReadFromJsonAsync<ApiResponse<LoginResponseDto>>();
         content.Should().NotBeNull();
-        content!.Success.Should().BeTrue();
-        
-        return content.Data!.Token;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TradingEngine.Infrastructure.Persistence.TradingDbContext>();
+            var acc = await db.UserAccounts.FindAsync(content!.Data!.UserId);
+            acc!.Deposit(new TradingEngine.Domain.ValueObjects.Money(100000m, Currency.USD));
+            await db.SaveChangesAsync();
+        }
+
+        return content!.Data!.Token;
     }
 }

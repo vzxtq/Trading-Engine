@@ -6,30 +6,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { AuthBrandLogo } from './AuthBrandLogo'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
 export const RegisterForm: React.FC = () => {
-  const currencyOptions = [
-    { value: 0, label: 'USD' },
-    { value: 1, label: 'EUR' },
-    { value: 2, label: 'GBP' },
-    { value: 3, label: 'JPY' },
-  ] as const
-
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
-    initialBalance: 10000,
-    currency: 0,
   })
   const registerMutation = useRegister()
   const navigate = useNavigate()
-
-  const selectedCurrencyLabel =
-    currencyOptions.find(o => o.value === formData.currency)?.label ?? 'USD'
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     registerMutation.mutate(formData, {
@@ -45,7 +30,7 @@ export const RegisterForm: React.FC = () => {
     const { id, value } = e.target
     setFormData(prev => ({ 
       ...prev, 
-      [id]: id === 'initialBalance' ? parseFloat(value) : value 
+      [id]: value 
     }))
   }
 
@@ -102,48 +87,12 @@ export const RegisterForm: React.FC = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="Min 8 characters, uppercase, number, sym"
+                placeholder="Min 8 characters, uppercase, number, symbol"
                 value={formData.password}
                 onChange={handleChange}
                 required
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="initialBalance">Initial balance</Label>
-                <Input
-                  id="initialBalance"
-                  type="number"
-                  placeholder="10000"
-                  value={formData.initialBalance}
-                  onChange={handleChange}
-                  required
-                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select 
-                  value={selectedCurrencyLabel}
-                  onValueChange={(val) => {
-                    const option = currencyOptions.find(o => o.label === val)
-                    if (!option) return
-                    setFormData(prev => ({ ...prev, currency: option.value }))
-                  }}
-                >
-                  <SelectTrigger className="border-border bg-muted text-foreground">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent className="border-border bg-muted text-foreground">
-                    {currencyOptions.map((c) => (
-                      <SelectItem key={c.value} value={c.label}>
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 border-t-0 bg-transparent">

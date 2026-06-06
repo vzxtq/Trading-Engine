@@ -14,9 +14,7 @@ public sealed record RegisterUserCommand(
     string Email,
     string Password,
     string FirstName,
-    string LastName,
-    decimal InitialBalance,
-    Currency Currency) : ICommand<Result<LoginResponseDto>>;
+    string LastName) : ICommand<Result<LoginResponseDto>>;
 
 public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, Result<LoginResponseDto>>
 {
@@ -57,7 +55,7 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
 
         return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            var initialBalance = new Money(request.InitialBalance, request.Currency);
+            var initialBalance = Money.Zero(Currency.USD);
             var account = UserAccountDomain.Create(request.Email, request.FirstName, request.LastName, initialBalance);
             await _accountRepository.AddAsync(account, ct);
 

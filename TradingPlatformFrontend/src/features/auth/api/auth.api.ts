@@ -3,7 +3,6 @@ import { api } from '@/api/axios'
 import type { ApiResponse, LoginResponseDto, AccountDto, PositionDto } from '@/types'
 import type { LoginRequest, RegisterRequest, UpdateProfileRequest, UpdatePasswordRequest } from '../types/auth-requests.types'
 import { useAuthStore } from '@/store/auth'
-import { Currency } from '@/types/enums'
 
 export const useLogin = () => {
   const setAuth = useAuthStore(state => state.setAuth)
@@ -27,10 +26,7 @@ export const useRegister = () => {
 
   return useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      const response = await api.post<ApiResponse<LoginResponseDto>>('/accounts/register', {
-        ...data,
-        currency: Currency[data.currency]
-      })
+      const response = await api.post<ApiResponse<LoginResponseDto>>('/accounts/register', data)
       return response.data
     },
     onSuccess: (response) => {

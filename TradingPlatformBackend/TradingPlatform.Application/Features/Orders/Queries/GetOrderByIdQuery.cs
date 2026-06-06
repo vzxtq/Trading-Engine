@@ -10,6 +10,7 @@ namespace TradingEngine.Application.Features.Orders.Queries;
 public class GetOrderByIdQuery : IQuery<Result<OrderDto>>
 {
     public Guid OrderId { get; set; }
+    public Guid UserId { get; set; }
 }
 
 public class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery, Result<OrderDto>>
@@ -25,6 +26,8 @@ public class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery, Result<
     {
         var order = await _orderReadRepository.GetByIdAsync(request.OrderId, cancellationToken);
         if (order is null) return Result<OrderDto>.Failure("Order not found");
+
+        if (order.UserId != request.UserId) return Result<OrderDto>.Failure("Unauthorized access to order.");
 
         return Result<OrderDto>.Success(new OrderDto
         {

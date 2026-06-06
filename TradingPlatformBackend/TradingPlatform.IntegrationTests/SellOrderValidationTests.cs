@@ -85,12 +85,21 @@ public class SellOrderValidationTests : IClassFixture<TradingPlatformFactory>
 
     private async Task<string> RegisterAndLoginAsync(string email, string password, string first, string last)
     {
-        var registerCommand = new RegisterUserCommand(email, password, first, last, 100000, Currency.USD);
+        var registerCommand = new RegisterUserCommand(email, password, first, last);
         await _client.PostAsJsonAsync("/api/accounts/register", registerCommand);
 
         var loginCommand = new LoginCommand(email, password);
         var logResp = await _client.PostAsJsonAsync("/api/accounts/login", loginCommand);
         var content = await logResp.Content.ReadFromJsonAsync<ApiResponse<LoginResponseDto>>();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TradingEngine.Infrastructure.Persistence.TradingDbContext>();
+            var acc = await db.UserAccounts.FindAsync(content!.Data!.UserId);
+            acc!.Deposit(new TradingEngine.Domain.ValueObjects.Money(100000m, Currency.USD));
+            await db.SaveChangesAsync();
+        }
+
         return content!.Data!.Token;
     }
 }

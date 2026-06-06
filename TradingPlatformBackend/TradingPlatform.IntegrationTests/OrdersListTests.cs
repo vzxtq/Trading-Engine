@@ -9,6 +9,8 @@ using TradingEngine.Application.Features.Orders.Dtos;
 using TradingEngine.Domain.Enums;
 using TradingEngineApi.Common;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection;
+using TradingEngine.Infrastructure.Persistence;
 
 namespace TradingPlatform.IntegrationTests;
 
@@ -98,12 +100,21 @@ public class OrdersListTests : IClassFixture<TradingPlatformFactory>
 
     private async Task<string> RegisterAndLoginAsync(string email, string password)
     {
-        var registerCommand = new RegisterUserCommand(email, password, "Test", "User", 100000, Currency.USD);
+        var registerCommand = new RegisterUserCommand(email, password, "Test", "User");
         await _client.PostAsJsonAsync("/api/accounts/register", registerCommand);
 
         var loginCommand = new LoginCommand(email, password);
         var logResp = await _client.PostAsJsonAsync("/api/accounts/login", loginCommand);
         var content = await logResp.Content.ReadFromJsonAsync<ApiResponse<LoginResponseDto>>();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+            var acc = await db.UserAccounts.FindAsync(content!.Data!.UserId);
+            acc!.Deposit(new TradingEngine.Domain.ValueObjects.Money(100000m, Currency.USD));
+            await db.SaveChangesAsync();
+        }
+
         return content!.Data!.Token;
     }
 

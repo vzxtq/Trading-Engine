@@ -60,7 +60,11 @@ public class OrdersController : ApiController
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var query = new GetOrderByIdQuery { OrderId = id };
+        var query = new GetOrderByIdQuery 
+        { 
+            OrderId = id,
+            UserId = _userResolverService.GetUserId()
+        };
         var result = await _mediator.Send(query, ct);
 
         return result.ToActionResult();

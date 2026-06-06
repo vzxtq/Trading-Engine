@@ -11,3 +11,6 @@ export const CURRENCY_LABELS: Record<Currency, string> = {
   [Currency.GBP]: 'GBP',
   [Currency.JPY]: 'JPY',
 };
+
+export const ORDER_COMMISSION_RATE = 0.001;
+export const ORDER_COMMISSION_PERCENT_LABEL = `${ORDER_COMMISSION_RATE * 100}%`;

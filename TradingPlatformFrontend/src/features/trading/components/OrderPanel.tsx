@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { OrderTypeLabels } from '@/types/enums/order-type.enum'
 import { cn, formatCurrency, formatNumber, numericClass } from '@/lib/utils'
+import { ORDER_COMMISSION_RATE, ORDER_COMMISSION_PERCENT_LABEL } from '@/lib/constants'
 import { Currency } from '@/types/enums'
 
 const ORDER_TYPES = [OrderType.Limit, OrderType.Market] as const
@@ -31,7 +32,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
 
   const isMarket = type === OrderType.Market
   const total = isMarket ? 0 : parseFloat(price || '0') * parseFloat(quantity || '0')
-  const fee = total * 0.001
+  const fee = total * ORDER_COMMISSION_RATE
 
   const handleQuickFill = (percent: number) => {
     if (side === OrderSide.Buy) {
@@ -167,7 +168,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol }) => {
             <span className={numericClass}>{formatNumber(total)} USD</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground font-semibold">Fee (0.1%)</span>
+            <span className="text-muted-foreground font-semibold">Fee ({ORDER_COMMISSION_PERCENT_LABEL})</span>
             <span className={numericClass}>{formatNumber(fee)} USD</span>
           </div>
         </div>

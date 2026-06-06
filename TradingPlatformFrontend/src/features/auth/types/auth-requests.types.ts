@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { Currency } from '@/types/enums'
 
 export const LoginRequestSchema = z.object({
   email: z.string().email(),
@@ -13,8 +12,6 @@ export const RegisterRequestSchema = z.object({
   lastName: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
-  initialBalance: z.number().min(0),
-  currency: z.nativeEnum(Currency),
 })
 
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>
