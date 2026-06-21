@@ -39,8 +39,7 @@ public sealed class MarketBuyOrderPlacementStrategy
                 remainingQuantity,
                 ask.TotalQuantity);
 
-            estimatedCost = checked(
-                estimatedCost + fillQuantity * ask.Price);
+            estimatedCost = checked(estimatedCost + (fillQuantity * ask.Price));
             remainingQuantity -= fillQuantity;
 
             if (remainingQuantity == 0)
