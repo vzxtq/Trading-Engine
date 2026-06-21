@@ -79,7 +79,7 @@ export const usePlaceOrder = () => {
 export const useCancelOrder = () => {
   return useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await api.post<ApiResponse<{ orderId: string; success: boolean; message: string }>>(`/orders/${orderId}/cancel`, {}, {
+      const response = await api.post<ApiResponse<{ orderId: string }>>(`/orders/${orderId}/cancel`, {}, {
         headers: { 'Content-Type': 'application/json' }
       })
       return response.data

@@ -9,14 +9,16 @@ public sealed class MatchingEngineProcessor : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, SymbolEngineProcessor> _engines = new();
 
-    private long _sequenceId;
+    private long _fallbackSequenceId;
 
     public async ValueTask<ExecutionResult> ProcessAsync(MatchingEngineCommand command, long engineTimestamp)
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(command.Symbol);
 
-        var sequenceId = Interlocked.Increment(ref _sequenceId);
+        var sequenceId = command.SequenceId > 0
+            ? command.SequenceId
+            : Interlocked.Increment(ref _fallbackSequenceId);
         var engine = GetOrCreateEngine(command.Symbol);
         return await engine.EnqueueAsync(command, sequenceId, engineTimestamp);
     }

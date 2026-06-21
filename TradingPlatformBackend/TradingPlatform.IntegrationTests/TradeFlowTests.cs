@@ -29,51 +29,23 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
     [Fact]
     public async Task CompleteTradeFlow_ShouldSucceed()
     {
-        // 0. Setup database and toggle SQLite vs Real
-        // _factory.UseSqlite = true; // Set to true if you want to go back to SQLite
         await _factory.InitializeDatabaseAsync();
-        var testEmails = new[] { "buyer@test.com", "seller@test.com" };
-
-        // 0.1 Clean up existing test data to ensure repeatability
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var context = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
-            var existingAccounts = await context.UserAccounts
-                .Where(a => testEmails.Contains(a.Email))
-                .ToListAsync();
-
-            if (existingAccounts.Any())
-            {
-                var accountIds = existingAccounts.Select(a => a.Id).ToList();
-                
-                // Remove related data (Cascading delete or manual)
-                var existingOrders = await context.Orders.Where(o => accountIds.Contains(o.UserId)).ToListAsync();
-                context.Orders.RemoveRange(existingOrders);
-
-                var existingTrades = await context.Trades.Where(t => accountIds.Contains(t.BuyerId) || accountIds.Contains(t.SellerId)).ToListAsync();
-                context.Trades.RemoveRange(existingTrades);
-                
-                var existingIdentities = await context.UserIdentities.Where(i => accountIds.Contains(i.UserId)).ToListAsync();
-                context.UserIdentities.RemoveRange(existingIdentities);
-
-                var existingPositions = await context.Positions.Where(p => accountIds.Contains(p.UserId)).ToListAsync();
-                context.Positions.RemoveRange(existingPositions);
-
-                context.UserAccounts.RemoveRange(existingAccounts);
-                await context.SaveChangesAsync();
-            }
-        }
+        var symbol = IntegrationTestSupport.CreateUniqueSymbol();
+        await IntegrationTestSupport.AddSymbolAsync(_factory, symbol);
+        var buyerEmail = $"buyer_{Guid.NewGuid()}@test.com";
+        var sellerEmail = $"seller_{Guid.NewGuid()}@test.com";
+        var testEmails = new[] { buyerEmail, sellerEmail };
 
         // 1. Register two users (Buyer and Seller)
-        var buyerToken = await RegisterAndLoginAsync("buyer@test.com", "Buyer123!", "Buyer", "Test");
-        var sellerToken = await RegisterAndLoginAsync("seller@test.com", "Seller123!", "Seller", "Test");
+        var buyerToken = await RegisterAndLoginAsync(buyerEmail, "Buyer123!", "Buyer", "Test");
+        var sellerToken = await RegisterAndLoginAsync(sellerEmail, "Seller123!", "Seller", "Test");
 
         // 1.1 Seed Seller position so they can sell
         using (var scope = _factory.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
-            var seller = await context.UserAccounts.FirstAsync(a => a.Email == "seller@test.com");
-            var position = PositionDomain.Create(seller.Id, new Symbol("BTCUSD"), new Quantity(10.75m), 40000.25m);
+            var seller = await context.UserAccounts.FirstAsync(a => a.Email == sellerEmail);
+            var position = PositionDomain.Create(seller.Id, new Symbol(symbol), new Quantity(10.75m), 40000.25m);
             context.Positions.Add(position!);
             await context.SaveChangesAsync();
         }
@@ -82,7 +54,7 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", buyerToken);
         var buyCommand = new PlaceOrderCommand
         {
-            Symbol = "BTCUSD",
+            Symbol = symbol,
             Price = 50000.25m,
             Quantity = 1.2345m,
             Side = OrderSide.Buy,
@@ -99,7 +71,7 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sellerToken);
         var sellCommand = new PlaceOrderCommand
         {
-            Symbol = "BTCUSD",
+            Symbol = symbol,
             Price = 50000.25m,
             Quantity = 1.2345m,
             Side = OrderSide.Sell,
@@ -112,8 +84,15 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
             throw new Exception($"Sell Order failed: {sellResponse.StatusCode} - {error}");
         }
 
-        // 4. Wait for matching engine to process (background task)
-        await Task.Delay(2000);
+        // 4. Wait for the durable pipeline to settle the trade.
+        await IntegrationTestSupport.WaitUntilAsync(async () =>
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+            return await db.Trades
+                .Include(x => x.Symbol)
+                .AnyAsync(x => x.Symbol.Name == symbol);
+        }, failureMessage: $"Trade for {symbol} was not settled.");
 
         // 5. Verify results in DB
         using var verifyScope = _factory.Services.CreateScope();
@@ -137,74 +116,78 @@ public class TradeFlowTests : IClassFixture<TradingPlatformFactory>
         trades.Should().HaveCount(1);
         trades[0].Price.Value.Should().Be(50000.25m);
         trades[0].Quantity.Value.Should().Be(1.2345m);
-        trades[0].Symbol.Name.Should().Be("BTCUSD");
+        trades[0].Symbol.Name.Should().Be(symbol);
 
         // Verify Position updates
         var sellerId = trades[0].SellerId;
         var buyerId = trades[0].BuyerId;
-        var btcSymbol = new Symbol("BTCUSD");
+        var tradedSymbol = new Symbol(symbol);
 
-        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == btcSymbol);
+        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == tradedSymbol);
         sellerPos.Should().NotBeNull();
         sellerPos!.Quantity.Value.Should().Be(9.5155m); // 10.75 seeded - 1.2345 sold
         sellerPos.AverageCost.Should().Be(40000.25m); // Should not change on sell
 
-        var buyerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == buyerId && p.SymbolValue == btcSymbol);
+        var buyerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == buyerId && p.SymbolValue == tradedSymbol);
         buyerPos.Should().NotBeNull();
         buyerPos!.Quantity.Value.Should().Be(1.2345m);
         buyerPos.AverageCost.Should().Be(50000.25m); // 1st purchase at 50000.25
+
+        var buyerAccount = await verifyContext.UserAccounts.FirstAsync(a => a.Id == buyerId);
+        var sellerAccount = await verifyContext.UserAccounts.FirstAsync(a => a.Id == sellerId);
+        var tradeNotional = 50000.25m * 1.2345m;
+
+        buyerAccount.Balance.Amount.Should().Be(100000m - tradeNotional);
+        buyerAccount.ReservedBalance.Amount.Should().Be(0m);
+        sellerAccount.Balance.Amount.Should().Be(100000m + tradeNotional);
+        (buyerAccount.Balance.Amount + sellerAccount.Balance.Amount).Should().Be(200000m);
     }
 
     [Fact]
     public async Task CompleteTradeFlow_SellAll_ShouldKeepPositionWithZeroQuantity()
     {
         await _factory.InitializeDatabaseAsync();
-        var testEmails = new[] { "buyer_all@test.com", "seller_all@test.com" };
+        var symbol = IntegrationTestSupport.CreateUniqueSymbol();
+        await IntegrationTestSupport.AddSymbolAsync(_factory, symbol);
+        var buyerEmail = $"buyer_all_{Guid.NewGuid()}@test.com";
+        var sellerEmail = $"seller_all_{Guid.NewGuid()}@test.com";
 
-        // Clean up
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var context = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
-            var accounts = await context.UserAccounts.Where(a => testEmails.Contains(a.Email)).ToListAsync();
-            foreach (var acc in accounts)
-            {
-                var accountIds = new[] { acc.Id };
-                context.Orders.RemoveRange(await context.Orders.Where(o => accountIds.Contains(o.UserId)).ToListAsync());
-                context.Trades.RemoveRange(await context.Trades.Where(t => accountIds.Contains(t.BuyerId) || accountIds.Contains(t.SellerId)).ToListAsync());
-                context.UserIdentities.RemoveRange(await context.UserIdentities.Where(i => accountIds.Contains(i.UserId)).ToListAsync());
-                context.Positions.RemoveRange(await context.Positions.Where(p => accountIds.Contains(p.UserId)).ToListAsync());
-            }
-            context.UserAccounts.RemoveRange(accounts);
-            await context.SaveChangesAsync();
-        }
-
-        var buyerToken = await RegisterAndLoginAsync("buyer_all@test.com", "Buyer123!", "Buyer", "All");
-        var sellerToken = await RegisterAndLoginAsync("seller_all@test.com", "Seller123!", "Seller", "All");
+        var buyerToken = await RegisterAndLoginAsync(buyerEmail, "Buyer123!", "Buyer", "All");
+        var sellerToken = await RegisterAndLoginAsync(sellerEmail, "Seller123!", "Seller", "All");
 
         // Seed Seller position with exactly what they will sell
         Guid sellerId;
         using (var scope = _factory.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
-            var seller = await context.UserAccounts.FirstAsync(a => a.Email == "seller_all@test.com");
+            var seller = await context.UserAccounts.FirstAsync(a => a.Email == sellerEmail);
             sellerId = seller.Id;
-            var position = PositionDomain.Create(sellerId, new Symbol("AAPL"), new Quantity(5.125m), 150.25m);
+            var position = PositionDomain.Create(sellerId, new Symbol(symbol), new Quantity(5.125m), 150.25m);
             context.Positions.Add(position!);
             await context.SaveChangesAsync();
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", buyerToken);
-        await _client.PostAsJsonAsync("/api/orders", new PlaceOrderCommand { Symbol = "AAPL", Price = 160.75m, Quantity = 5.125m, Side = OrderSide.Buy, Type = OrderType.Limit });
+        var buyResponse = await _client.PostAsJsonAsync("/api/orders", new PlaceOrderCommand { Symbol = symbol, Price = 160.75m, Quantity = 5.125m, Side = OrderSide.Buy, Type = OrderType.Limit });
+        buyResponse.EnsureSuccessStatusCode();
 
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sellerToken);
-        await _client.PostAsJsonAsync("/api/orders", new PlaceOrderCommand { Symbol = "AAPL", Price = 160.75m, Quantity = 5.125m, Side = OrderSide.Sell, Type = OrderType.Limit });
+        var sellResponse = await _client.PostAsJsonAsync("/api/orders", new PlaceOrderCommand { Symbol = symbol, Price = 160.75m, Quantity = 5.125m, Side = OrderSide.Sell, Type = OrderType.Limit });
+        sellResponse.EnsureSuccessStatusCode();
 
-        await Task.Delay(2000);
+        await IntegrationTestSupport.WaitUntilAsync(async () =>
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+            var position = await db.Positions
+                .FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == new Symbol(symbol));
+            return position?.Quantity.Value == 0;
+        }, failureMessage: $"Seller position for {symbol} was not fully settled.");
 
         using var verifyScope = _factory.Services.CreateScope();
         var verifyContext = verifyScope.ServiceProvider.GetRequiredService<TradingDbContext>();
-        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == new Symbol("AAPL"));
+        var sellerPos = await verifyContext.Positions.FirstOrDefaultAsync(p => p.UserId == sellerId && p.SymbolValue == new Symbol(symbol));
         
         sellerPos.Should().NotBeNull();
         sellerPos!.Quantity.Value.Should().Be(0);

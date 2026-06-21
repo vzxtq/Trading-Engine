@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TradingEngine.Application.Features.Accounts.Commands;
 using TradingEngine.Application.Features.Accounts.Dtos;
@@ -32,7 +33,8 @@ public class PositionsAndTradesTests : IClassFixture<TradingPlatformFactory>
     {
         // 0. Setup
         await _factory.InitializeDatabaseAsync();
-        var symbol = "AAPL";
+        var symbol = IntegrationTestSupport.CreateUniqueSymbol();
+        await IntegrationTestSupport.AddSymbolAsync(_factory, symbol);
         decimal price = 150.95m;
         decimal quantity = 10.5m;
 
@@ -79,8 +81,15 @@ public class PositionsAndTradesTests : IClassFixture<TradingPlatformFactory>
         var sellResponse = await _client.PostAsJsonAsync("/api/orders", sellCommand);
         sellResponse.EnsureSuccessStatusCode();
 
-        // 4. Wait for matching engine to process (using a longer delay to be safe)
-        await Task.Delay(5000);
+        // 4. Wait for the durable pipeline to settle the trade.
+        await IntegrationTestSupport.WaitUntilAsync(async () =>
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+            return await db.Trades
+                .Include(x => x.Symbol)
+                .AnyAsync(x => x.Symbol.Name == symbol);
+        }, failureMessage: $"Trade for {symbol} was not settled.");
 
         // 5. Verify Positions for Buyer
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", buyerToken);

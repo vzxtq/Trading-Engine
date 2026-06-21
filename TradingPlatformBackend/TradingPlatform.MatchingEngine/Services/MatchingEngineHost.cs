@@ -1,59 +1,72 @@
-using System.Linq;
-using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TradingEngine.MatchingEngine.Interfaces;
-using TradingEngine.MatchingEngine.Commands;
-using TradingEngine.MatchingEngine.Models;
+using System.Threading.Channels;
 using TradingEngine.Domain.ValueObjects;
+using TradingEngine.MatchingEngine.Commands;
+using TradingEngine.MatchingEngine.Interfaces;
+using TradingEngine.MatchingEngine.Models;
 
 namespace TradingEngine.MatchingEngine.Services;
 
 internal sealed record MatchingEngineShard(
     int Id,
-    Channel<MatchingEngineCommand> Channel,
+    Channel<MatchingEngineQueueItem> Channel,
     MatchingEngineWorker Worker,
     MatchingEngineProcessor Processor)
 {
-    public ChannelWriter<MatchingEngineCommand> Writer => Channel.Writer;
+    public ChannelWriter<MatchingEngineQueueItem> Writer => Channel.Writer;
 }
 
 /// <summary>
 /// Orchestrates sharded, per-symbol workers. Symbols are deterministically mapped to shards by hash.
 /// </summary>
-public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapshotProvider, IMatchingEngineRunner, IAsyncDisposable
+public sealed class MatchingEngineHost :
+    IMatchingEngineQueue,
+    IMatchingEngineCommandExecutor,
+    IOrderBookSnapshotProvider,
+    IMatchingEngineRunner,
+    IMatchingEngineReadiness,
+    IAsyncDisposable
 {
-    private readonly MatchingEngineShard[] _shards;
-    private readonly MatchingEngineOptions _options;
+    private readonly MatchingEngineShard[] _matchingEngineShards;
+    private readonly MatchingEngineOptions _matchingEngineOptions;
     private Task[] _workerTasks = [];
     private readonly ILogger<MatchingEngineHost> _logger;
+    private readonly TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public MatchingEngineHost(
         IOptions<MatchingEngineOptions> options,
         IExecutionResultDispatcher dispatcher,
+        IExecutionResultStore resultStore,
         IEngineTimeProvider timeProvider,
         ILoggerFactory loggerFactory,
         ILogger<MatchingEngineHost> logger)
     {
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        var shardCount = Math.Max(1, _options.ShardCount);
+        _matchingEngineOptions = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        var shardCount = Math.Max(1, _matchingEngineOptions.ShardCount);
 
-        _shards = new MatchingEngineShard[shardCount];
+        _matchingEngineShards = new MatchingEngineShard[shardCount];
 
         for (var i = 0; i < shardCount; i++)
         {
-            var channel = Channel.CreateBounded<MatchingEngineCommand>(new BoundedChannelOptions(_options.ChannelCapacity)
+            var channel = Channel.CreateBounded<MatchingEngineQueueItem>(new BoundedChannelOptions(_matchingEngineOptions.ChannelCapacity)
             {
                 SingleReader = true,
                 SingleWriter = false,
-                FullMode = _options.FullMode
+                FullMode = _matchingEngineOptions.FullMode
             });
 
             var processor = new MatchingEngineProcessor();
             var workerLogger = loggerFactory.CreateLogger<MatchingEngineWorker>();
-            var worker = new MatchingEngineWorker(processor, dispatcher, timeProvider, channel.Reader, workerLogger);
+            var worker = new MatchingEngineWorker(
+                processor,
+                dispatcher,
+                resultStore,
+                timeProvider,
+                channel.Reader,
+                workerLogger);
 
-            _shards[i] = new MatchingEngineShard(i, channel, worker, processor);
+            _matchingEngineShards[i] = new MatchingEngineShard(i, channel, worker, processor);
         }
 
         _logger = logger;
@@ -63,7 +76,27 @@ public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapsho
     public ValueTask EnqueueAsync(MatchingEngineCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return GetWriter(command.Symbol.Value).WriteAsync(command, cancellationToken);
+        return GetWriter(command.Symbol.Value).WriteAsync(
+            new MatchingEngineQueueItem(command),
+            cancellationToken);
+    }
+
+    public async Task<ExecutionResult> ExecuteAsync(
+        MatchingEngineCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var completion = new TaskCompletionSource<ExecutionResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await GetWriter(command.Symbol.Value)
+            .WriteAsync(new MatchingEngineQueueItem(command, completion), cancellationToken)
+            .ConfigureAwait(false);
+
+        return await completion.Task
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<OrderBookSnapshot> GetSnapshotAsync(Symbol symbol, CancellationToken cancellationToken)
@@ -73,32 +106,58 @@ public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapsho
         var tcs = new TaskCompletionSource<OrderBookSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
         var cmd = new SnapshotOrderBookCommand { Symbol = symbol, SymbolId = Guid.Empty, Completion = tcs };
 
-        await GetWriter(symbol.Value).WriteAsync(cmd, cancellationToken).ConfigureAwait(false);
+        await GetWriter(symbol.Value)
+            .WriteAsync(new MatchingEngineQueueItem(cmd), cancellationToken)
+            .ConfigureAwait(false);
         return await tcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public Task RunAsync(CancellationToken ct)
     {
-        _workerTasks = _shards.Select(shard => shard.Worker.RunAsync(ct)).ToArray();
+        _workerTasks = _matchingEngineShards.Select(shard => shard.Worker.RunAsync(ct)).ToArray();
+        _ready.TrySetResult();
         return Task.WhenAll(_workerTasks);
     }
 
-    private ChannelWriter<MatchingEngineCommand> GetWriter(string symbol)
+    public Task WaitUntilReadyAsync(CancellationToken cancellationToken)
+    {
+        return _ready.Task.WaitAsync(cancellationToken);
+    }
+
+    public async Task RecoverAsync(
+        IReadOnlyList<MatchingEngineCommand> commands,
+        CancellationToken ct)
+    {
+        foreach (var command in commands
+                     .OrderBy(x => x.SequenceId))
+        {
+            ct.ThrowIfCancellationRequested();
+            var shard = _matchingEngineShards[GetShardIndex(command.Symbol.Value)];
+            var timestamp = command is AddOrderCommand addOrder
+                ? addOrder.ReceivedAt
+                : 0;
+
+            await shard.Processor.ProcessAsync(command, timestamp);
+        }
+    }
+
+    #region Private Methods
+    private ChannelWriter<MatchingEngineQueueItem> GetWriter(string symbol)
     {
         var index = GetShardIndex(symbol);
-        return _shards[index].Writer;
+        return _matchingEngineShards[index].Writer;
     }
 
     private int GetShardIndex(string symbol)
     {
         var hash = StringComparer.OrdinalIgnoreCase.GetHashCode(symbol);
-        return (hash & 0x7FFFFFFF) % _shards.Length;
+        return (hash & 0x7FFFFFFF) % _matchingEngineShards.Length;
     }
 
     public async ValueTask DisposeAsync()
     {
         // 1. Complete all channel writers to signal workers to stop after draining
-        foreach (var shard in _shards)
+        foreach (var shard in _matchingEngineShards)
         {
             shard.Writer.TryComplete();
         }
@@ -118,9 +177,10 @@ public sealed class MatchingEngineHost : IMatchingEngineQueue, IOrderBookSnapsho
         }
 
         // 3. Dispose all processors
-        foreach (var shard in _shards)
+        foreach (var shard in _matchingEngineShards)
         {
             await shard.Processor.DisposeAsync();
         }
     }
+    #endregion
 }

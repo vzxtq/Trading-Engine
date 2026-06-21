@@ -1,220 +1,306 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using TradingEngine.Domain.Enums;
+using TradingEngine.Application.Interfaces;
 using TradingEngine.Domain.Entities;
+using TradingEngine.Domain.Enums;
 using TradingEngine.Domain.ValueObjects;
 using TradingEngine.Infrastructure.Persistence;
-using TradingEngine.MatchingEngine.Interfaces;
+using TradingEngine.Infrastructure.Persistence.Outbox;
 using TradingEngine.MatchingEngine.Models;
 using TradingEngine.MatchingEngine.Scaling;
 
 namespace TradingEngine.Infrastructure.Handlers;
 
-/// <summary>
-/// Persists trades and updates balances/positions based on execution results from the matching engine.
-/// Lives in Infrastructure to access DbContext without creating project reference cycles.
-/// </summary>
-public sealed class PersistenceExecutionResultHandler : IExecutionResultHandler
+public sealed class PersistenceExecutionResultHandler
 {
-    private readonly TradingDbContext _dbContext;
+    private const int MaxAttempts = 4;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<PersistenceExecutionResultHandler> _logger;
 
     public PersistenceExecutionResultHandler(
-        TradingDbContext dbContext,
+        IServiceScopeFactory scopeFactory,
         ILogger<PersistenceExecutionResultHandler> logger)
     {
-        _dbContext = dbContext;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
-    public async Task HandleAsync(ExecutionResult result, CancellationToken cancellationToken)
+    public async Task ProcessAsync(
+        Guid resultOutboxId,
+        ExecutionResult result,
+        CancellationToken cancellationToken)
     {
-        if (result is not ExecutionResult.Accepted accepted)
-            return;
-
-        await PersistAcceptedAsync(accepted, cancellationToken);
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        {
+            try
+            {
+                await ProcessAttemptAsync(resultOutboxId, result, cancellationToken);
+                return;
+            }
+            catch (DbUpdateConcurrencyException ex) when (attempt < MaxAttempts)
+            {
+                await DelayBeforeRetryAsync(result, attempt, ex, cancellationToken);
+            }
+            catch (DbUpdateException ex) when (attempt < MaxAttempts)
+            {
+                await DelayBeforeRetryAsync(result, attempt, ex, cancellationToken);
+            }
+        }
     }
 
-    private async Task PersistAcceptedAsync(ExecutionResult.Accepted accepted, CancellationToken cancellationToken)
+    private async Task ProcessAttemptAsync(
+        Guid resultOutboxId,
+        ExecutionResult result,
+        CancellationToken cancellationToken)
     {
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-        try
+        await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            var orderIds = accepted.Trades
-                .SelectMany(t => new[] { t.BuyOrderId, t.SellOrderId })
-                .Concat(accepted.StateChanges.Select(sc => sc.OrderId))
-                .Distinct()
-                .OrderBy(id => id)
-                .ToList();
+            var outboxEntry = await dbContext.ExecutionResultOutbox
+                .FirstOrDefaultAsync(x => x.Id == resultOutboxId, ct)
+                ?? throw new InvalidOperationException(
+                    $"Execution result outbox entry {resultOutboxId} was not found.");
 
-            if (orderIds.Any())
+            if (outboxEntry.Status == ExecutionResultOutboxStatus.Processed)
+                return true;
+
+            var alreadyProcessed = await dbContext.ProcessedExecutionReceipts
+                .AnyAsync(
+                    x => x.SymbolId == result.SymbolId
+                         && x.SequenceId == result.SequenceId,
+                    ct);
+
+            if (!alreadyProcessed)
             {
-                var idList = string.Join(",", orderIds.Select(id => $"'{id}'"));
-                await _dbContext.Database.ExecuteSqlRawAsync($"SELECT 1 FROM Orders WITH (UPDLOCK) WHERE Id IN ({idList})", cancellationToken);
+                if (result is ExecutionResult.Accepted accepted)
+                    await ApplyAcceptedAsync(dbContext, accepted, ct);
+
+                await dbContext.ProcessedExecutionReceipts.AddAsync(
+                    ProcessedExecutionReceipt.Create(
+                        result.SymbolId,
+                        result.SequenceId),
+                    ct);
             }
 
-            var orders = await _dbContext.Orders
-                .Include(o => o.Symbol)
-                .Where(o => orderIds.Contains(o.Id))
-                .ToDictionaryAsync(o => o.Id, cancellationToken);
+            var commandEntry = await dbContext.OrderCommandOutbox
+                .FirstOrDefaultAsync(
+                    x => x.Id == outboxEntry.CommandOutboxId,
+                    ct)
+                ?? throw new InvalidOperationException(
+                    $"Order command outbox entry {outboxEntry.CommandOutboxId} was not found.");
 
-            var userIds = orders.Values.Select(o => o.UserId)
-                .Concat(accepted.Trades.SelectMany(t => new[] { t.BuyerId, t.SellerId }))
-                .Distinct()
-                .OrderBy(id => id)
-                .ToList();
+            commandEntry.MarkSettled();
+            outboxEntry.MarkProcessed();
 
-            if (userIds.Any())
+            await unitOfWork.CommitAsync(ct);
+
+            return true;
+        }, cancellationToken);
+    }
+
+    private async Task ApplyAcceptedAsync(
+        TradingDbContext dbContext,
+        ExecutionResult.Accepted accepted,
+        CancellationToken cancellationToken)
+    {
+        var orderIds = accepted.Trades
+            .SelectMany(t => new[] { t.BuyOrderId, t.SellOrderId })
+            .Concat(accepted.StateChanges.Select(sc => sc.OrderId))
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+        var orders = await dbContext.Orders
+            .Include(o => o.Symbol)
+            .Where(o => orderIds.Contains(o.Id))
+            .OrderBy(o => o.Id)
+            .ToDictionaryAsync(o => o.Id, cancellationToken);
+
+        var userIds = orders.Values
+            .Select(o => o.UserId)
+            .Concat(accepted.Trades.SelectMany(t => new[] { t.BuyerId, t.SellerId }))
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+        var accounts = await dbContext.UserAccounts
+            .Where(a => userIds.Contains(a.Id))
+            .OrderBy(a => a.Id)
+            .ToDictionaryAsync(a => a.Id, cancellationToken);
+
+        var symbolsInBatch = orders.Values
+            .Select(o => o.Symbol.Name)
+            .Distinct()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var allPositions = await dbContext.Positions
+            .Where(p => userIds.Contains(p.UserId))
+            .OrderBy(p => p.UserId)
+            .ThenBy(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        var positionCache = allPositions
+            .Where(p => symbolsInBatch.Contains(p.SymbolValue.Value))
+            .ToDictionary(
+                p => (p.UserId, p.SymbolValue.Value),
+                p => p);
+
+        PositionDomain? FindPosition(Guid userId, string symbol)
+        {
+            return positionCache.TryGetValue((userId, symbol), out var position)
+                ? position
+                : null;
+        }
+
+        foreach (var trade in accepted.Trades)
+        {
+            var buyOrder = orders[trade.BuyOrderId];
+            var symbolName = buyOrder.Symbol.Name;
+
+            var priceValue = trade.Price.ToDomainPrice();
+            var quantityValue = trade.Quantity.ToDomainQuantity();
+            var price = new Price(priceValue);
+            var quantity = new Quantity(quantityValue);
+            var notional = priceValue * quantityValue;
+            var currency = accounts[trade.BuyerId].Balance.Currency;
+            var money = new Money(notional, currency);
+
+            accounts[trade.BuyerId].CommitReservedFunds(money);
+            accounts[trade.SellerId].Deposit(money);
+
+            var buyPosition = FindPosition(trade.BuyerId, symbolName);
+            if (buyPosition is null)
             {
-                var idList = string.Join(",", userIds.Select(id => $"'{id}'"));
-                await _dbContext.Database.ExecuteSqlRawAsync($"SELECT 1 FROM UserAccounts WITH (UPDLOCK) WHERE Id IN ({idList})", cancellationToken);
+                buyPosition = PositionDomain.Create(
+                                  trade.BuyerId,
+                                  new Symbol(symbolName),
+                                  quantity,
+                                  priceValue)
+                              ?? throw new UnreachableException(
+                                  "PositionDomain.Create returned null unexpectedly.");
+
+                await dbContext.Positions.AddAsync(buyPosition, cancellationToken);
+                positionCache[(trade.BuyerId, symbolName)] = buyPosition;
+            }
+            else
+            {
+                buyPosition.Add(quantity, priceValue);
             }
 
-            var accounts = await _dbContext.UserAccounts
-                .Where(a => userIds.Contains(a.Id))
-                .ToDictionaryAsync(a => a.Id, cancellationToken);
-
-            var symbolsInBatch = orders.Values.Select(o => o.Symbol.Name).Distinct().ToHashSet();
-            
-            if (userIds.Any())
+            var sellPosition = FindPosition(trade.SellerId, symbolName);
+            if (sellPosition is null)
             {
-                var idList = string.Join(",", userIds.Select(id => $"'{id}'"));
-                await _dbContext.Database.ExecuteSqlRawAsync($"SELECT 1 FROM Positions WITH (UPDLOCK) WHERE UserId IN ({idList})", cancellationToken);
-            }
-
-            var allPositions = await _dbContext.Positions
-                .Where(p => userIds.Contains(p.UserId))
-                .ToListAsync(cancellationToken);
-
-            var positionCache = allPositions
-                .Where(p => symbolsInBatch.Contains(p.SymbolValue.Value))
-                .ToDictionary(p => (p.UserId, p.SymbolValue.Value), p => p);
-
-            PositionDomain? FindPosition(Guid userId, string symbol) =>
-                positionCache.TryGetValue((userId, symbol), out var p) ? p : null;
-
-            foreach (var trade in accepted.Trades)
-            {
-                var buyOrder = orders[trade.BuyOrderId];
-                var symbolName = buyOrder.Symbol.Name;
-
-                decimal priceValue = trade.Price.ToDomainPrice();
-                decimal quantityValue = trade.Quantity.ToDomainQuantity();
-
-                var price = new Price(priceValue);
-                var qty = new Quantity(quantityValue);
-                var notional = priceValue * quantityValue;
-                var currency = accounts[trade.BuyerId].Balance.Currency;
-                var money = new Money(notional, currency);
-
-                accounts[trade.BuyerId].CommitReservedFunds(money);
-                accounts[trade.SellerId].Deposit(money);
-
-                var buyPos = FindPosition(trade.BuyerId, symbolName);
-                if (buyPos is null)
-                {
-                    buyPos = PositionDomain.Create(trade.BuyerId, new Symbol(symbolName), qty, priceValue)
-                        ?? throw new UnreachableException("PositionDomain.Create returned null unexpectedly.");
-                    _dbContext.Positions.Add(buyPos);
-                    positionCache[(trade.BuyerId, symbolName)] = buyPos;
-                }
-                else
-                {
-                    buyPos.Add(qty, priceValue);
-                }
-
-                var sellPos = FindPosition(trade.SellerId, symbolName);
-                if (sellPos is null)
-                {
-                    _logger.LogWarning("Seller position not found for user {UserId} and symbol {Symbol}. Skipping position update.", trade.SellerId, symbolName);
-                }
-                else
-                {
-                    sellPos.CommitReserved(qty);
-                }
-
-                var executedAt = DateTimeOffset.FromUnixTimeMilliseconds(trade.ExecutedAt).UtcDateTime;
-                var tradeDomain = TradeDomain.Create(
-                    trade.TradeId,
-                    trade.BuyOrderId,
-                    trade.SellOrderId,
-                    trade.BuyerId,
+                _logger.LogWarning(
+                    "Seller position not found for user {UserId} and symbol {Symbol}",
                     trade.SellerId,
-                    trade.SymbolId,
-                    price,
-                    qty,
-                    executedAt);
-
-                _dbContext.Trades.Add(tradeDomain);
+                    symbolName);
             }
-
-            foreach (var stateChange in accepted.StateChanges)
+            else
             {
-                if (!orders.TryGetValue(stateChange.OrderId, out var order))
-                    continue;
-
-                _logger.LogInformation(
-                    "Processing state change for order {OrderId}: {Status}, Filled: {Filled}",
-                    stateChange.OrderId, stateChange.Status, stateChange.FilledQuantity);
-
-                // Capture the status before applying changes so we can detect whether
-                // this handler is actually the one performing the cancellation.
-                // CancelOrderCommandHandler commits Cancelled to the DB before enqueuing
-                // to the engine, so when the engine echoes back the cancel result the
-                // order is already Cancelled here — we must not release funds a second time.
-                var statusBeforeChange = order.Status;
-
-                order.ApplyStateChange(stateChange.FilledQuantity.ToDomainQuantity(), stateChange.Status);
-
-                var isCancellingNow = statusBeforeChange != OrderStatus.Cancelled
-                    && statusBeforeChange != OrderStatus.PartiallyFilledCancelled;
-
-                if (isCancellingNow
-                    && order.Side == OrderSide.Buy
-                    && (stateChange.Status == OrderStatus.Cancelled || stateChange.Status == OrderStatus.PartiallyFilledCancelled)
-                    && stateChange.RemainingQuantity > 0)
-                {
-                    var previousTrades = await _dbContext.Trades
-                        .Where(t => t.BuyOrderId == order.Id)
-                        .Select(t => new { PriceValue = t.Price.Value, QuantityValue = t.Quantity.Value })
-                        .ToListAsync(cancellationToken);
-
-                    var spentInPreviousBatches = previousTrades.Sum(t => t.PriceValue * t.QuantityValue);
-
-                    var spentInThisBatch = accepted.Trades
-                        .Where(t => t.BuyOrderId == order.Id)
-                        .Sum(t => t.Price.ToDomainPrice() * t.Quantity.ToDomainQuantity());
-
-                    decimal releaseAmount = order.ReservedAmount - (spentInPreviousBatches + spentInThisBatch);
-
-                    var release = new Money(
-                        Math.Max(0, releaseAmount),
-                        accounts[order.UserId].Balance.Currency);
-
-                    accounts[order.UserId].ReleaseReservedFunds(release);
-                }
-                else if (isCancellingNow
-                    && order.Side == OrderSide.Sell
-                    && (stateChange.Status == OrderStatus.Cancelled || stateChange.Status == OrderStatus.PartiallyFilledCancelled)
-                    && stateChange.RemainingQuantity > 0)
-                {
-                    FindPosition(order.UserId, order.Symbol.Name)
-                        ?.ReleaseReserved(new Quantity(stateChange.RemainingQuantity.ToDomainQuantity()));
-                }
-
-                _dbContext.Orders.Update(order);
+                sellPosition.CommitReserved(quantity);
             }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            var executedAt = DateTimeOffset
+                .FromUnixTimeMilliseconds(trade.ExecutedAt)
+                .UtcDateTime;
+
+            var tradeDomain = TradeDomain.Create(
+                trade.TradeId,
+                trade.BuyOrderId,
+                trade.SellOrderId,
+                trade.BuyerId,
+                trade.SellerId,
+                trade.SymbolId,
+                price,
+                quantity,
+                executedAt);
+
+            await dbContext.Trades.AddAsync(tradeDomain, cancellationToken);
         }
-        catch (Exception ex)
+
+        foreach (var stateChange in accepted.StateChanges)
         {
-            _logger.LogError(ex, "Failed to persist execution result");
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
+            if (!orders.TryGetValue(stateChange.OrderId, out var order))
+                continue;
+
+            var statusBeforeChange = order.Status;
+            order.ApplyStateChange(
+                stateChange.FilledQuantity.ToDomainQuantity(),
+                stateChange.Status);
+
+            var isFirstCancellation =
+                statusBeforeChange != OrderStatus.Cancelled
+                && statusBeforeChange != OrderStatus.PartiallyFilledCancelled;
+
+            var isCancellation =
+                stateChange.Status == OrderStatus.Cancelled
+                || stateChange.Status == OrderStatus.PartiallyFilledCancelled;
+
+            if (isFirstCancellation
+                && isCancellation
+                && stateChange.RemainingQuantity > 0
+                && order.Side == OrderSide.Buy)
+            {
+                var previousTrades = await dbContext.Trades
+                    .Where(t => t.BuyOrderId == order.Id)
+                    .Select(t => new
+                    {
+                        PriceValue = t.Price.Value,
+                        QuantityValue = t.Quantity.Value
+                    })
+                    .ToListAsync(cancellationToken);
+
+                var spentInPreviousBatches = previousTrades
+                    .Sum(t => t.PriceValue * t.QuantityValue);
+
+                var spentInThisBatch = accepted.Trades
+                    .Where(t => t.BuyOrderId == order.Id)
+                    .Sum(t => t.Price.ToDomainPrice() * t.Quantity.ToDomainQuantity());
+
+                var releaseAmount = Math.Max(
+                    0,
+                    order.ReservedAmount - spentInPreviousBatches - spentInThisBatch);
+
+                if (releaseAmount > 0)
+                {
+                    accounts[order.UserId].ReleaseReservedFunds(
+                        new Money(
+                            releaseAmount,
+                            accounts[order.UserId].Balance.Currency));
+                }
+            }
+            else if (isFirstCancellation
+                     && isCancellation
+                     && stateChange.RemainingQuantity > 0
+                     && order.Side == OrderSide.Sell)
+            {
+                FindPosition(order.UserId, order.Symbol.Name)
+                    ?.ReleaseReserved(
+                        new Quantity(
+                            stateChange.RemainingQuantity.ToDomainQuantity()));
+            }
         }
+    }
+
+    private async Task DelayBeforeRetryAsync(
+        ExecutionResult result,
+        int attempt,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        var delayMilliseconds = attempt * 25 + Random.Shared.Next(5, 25);
+        _logger.LogWarning(
+            exception,
+            "Concurrency conflict settling symbol {SymbolId}, sequence {SequenceId}. Retrying attempt {Attempt}",
+            result.SymbolId,
+            result.SequenceId,
+            attempt + 1);
+
+        await Task.Delay(delayMilliseconds, cancellationToken);
     }
 }

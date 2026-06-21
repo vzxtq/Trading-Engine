@@ -20,6 +20,9 @@ using TradingEngine.Infrastructure.Repositories.Trades;
 using TradingEngine.Infrastructure.ExternalServices;
 using TradingEngine.Infrastructure.Security;
 using TradingEngine.MatchingEngine.Interfaces;
+using TradingEngine.Application.Interfaces.OrderCommands;
+using TradingEngine.Infrastructure.Repositories.OrderCommands;
+using TradingEngine.Infrastructure.Services.Outbox;
 
 namespace TradingEngine.Infrastructure;
 
@@ -51,8 +54,13 @@ public static class InfrustructureDependencyInjection
         services.AddScoped<IPositionReadRepository, PositionReadRepository>();
         services.AddScoped<ITradeReadRepository, TradeReadRepository>();
         services.AddScoped<ISymbolReadRepository, SymbolReadRepository>();
-        services.AddScoped<IExecutionResultHandler, PersistenceExecutionResultHandler>();
+        services.AddScoped<IOrderCommandOutboxRepository, OrderCommandOutboxRepository>();
+        services.AddSingleton<PersistenceExecutionResultHandler>();
+        services.AddSingleton<IExecutionResultStore, ExecutionResultStore>();
+        services.AddSingleton<IMatchingEngineRecoverySource, MatchingEngineRecoverySource>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddHostedService<OrderCommandOutboxProcessor>();
+        services.AddHostedService<ExecutionResultOutboxProcessor>();
 
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();

@@ -9,18 +9,14 @@ interface OpenOrdersProps {
 
 export const OpenOrders: React.FC<OpenOrdersProps> = () => {
   const { data: responseData } = useUserOrders({
-    page: 1, // Default page
-    pageSize: 10, // Default page size
-    'Filter.Status': OrderStatus.Open, // Filter for open orders
-    // Assuming we also want to show partially filled orders as "open"
-    // For now, only filtering by OrderStatus.Open. If the backend supports multiple statuses in Filter.Status,
-    // we would pass an array or a different query param. For now, matching the previous frontend logic for simplicity.
+    page: 1,
+    pageSize: 10,
+    'Filter.Status': OrderStatus.Open,
   })
   const orders = responseData?.orders?.items || []
   const cancelOrder = useCancelOrder()
   const [cancellingIds, setCancellingIds] = React.useState<Set<string>>(new Set())
 
-  // No need to filter locally anymore as the API handles it
   const openOrders = orders
 
   return (

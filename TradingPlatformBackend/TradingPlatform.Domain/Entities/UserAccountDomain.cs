@@ -145,7 +145,11 @@ public class UserAccountDomain : AggregateRoot
         if (ReservedBalance < amount)
             throw new InvalidOperationException("Reserved balance is insufficient.");
 
+        if (Balance < amount)
+            throw new InvalidOperationException("Balance is insufficient.");
+
         ReservedBalance -= amount;
+        Balance -= amount;
 
         UpdatedAt = DateTime.UtcNow;
     }

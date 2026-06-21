@@ -28,8 +28,10 @@ public static class MatchingEngineDependencyInjection
         services.AddSingleton<IExecutionResultDispatcher, ExecutionResultDispatcher>();
         services.AddSingleton<MatchingEngineHost>();
         services.AddSingleton<IMatchingEngineQueue>(sp => sp.GetRequiredService<MatchingEngineHost>());
+        services.AddSingleton<IMatchingEngineCommandExecutor>(sp => sp.GetRequiredService<MatchingEngineHost>());
         services.AddSingleton<IOrderBookSnapshotProvider>(sp => sp.GetRequiredService<MatchingEngineHost>());
         services.AddSingleton<IMatchingEngineRunner>(sp => sp.GetRequiredService<MatchingEngineHost>());
+        services.AddSingleton<IMatchingEngineReadiness>(sp => sp.GetRequiredService<MatchingEngineHost>());
         services.AddHostedService<MatchingEngineBackgroundService>();
 
         return new MatchingEngineBuilder(services);

@@ -57,6 +57,12 @@ namespace TradingEngine.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("ReservedAmount");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Side")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -116,6 +122,12 @@ namespace TradingEngine.Infrastructure.Migrations
                         .HasPrecision(18, 8)
                         .HasColumnType("decimal(18,8)")
                         .HasColumnName("ReservedQuantity");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("SymbolValue")
                         .IsRequired()
@@ -254,6 +266,12 @@ namespace TradingEngine.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("UpdatedAt");
@@ -304,6 +322,187 @@ namespace TradingEngine.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserIdentities", (string)null);
+                });
+
+            modelBuilder.Entity("TradingEngine.Infrastructure.Persistence.Outbox.ExecutionResultOutboxEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CommandOutboxId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResultType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long>("SequenceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("SymbolId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommandOutboxId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("SymbolId", "SequenceId")
+                        .IsUnique();
+
+                    b.ToTable("ExecutionResultOutbox", (string)null);
+                });
+
+            modelBuilder.Entity("TradingEngine.Infrastructure.Persistence.Outbox.OrderCommandOutboxEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActiveCancellationOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CommandType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DispatchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("EnqueueId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("EnqueueId"));
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long?>("SequenceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("SymbolId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActiveCancellationOrderId")
+                        .IsUnique()
+                        .HasFilter("[ActiveCancellationOrderId] IS NOT NULL");
+
+                    b.HasIndex("EnqueueId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "EnqueueId");
+
+                    b.HasIndex("SymbolId", "SequenceId")
+                        .IsUnique()
+                        .HasFilter("[SequenceId] IS NOT NULL");
+
+                    b.HasIndex("OrderId", "CommandType", "Status");
+
+                    b.ToTable("OrderCommandOutbox", (string)null);
+                });
+
+            modelBuilder.Entity("TradingEngine.Infrastructure.Persistence.Outbox.ProcessedExecutionReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("SequenceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SymbolId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolId", "SequenceId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessedExecutionReceipts", (string)null);
+                });
+
+            modelBuilder.Entity("TradingEngine.Infrastructure.Persistence.Outbox.SymbolCommandSequence", b =>
+                {
+                    b.Property<Guid>("SymbolId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LastSequenceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("SymbolId");
+
+                    b.ToTable("SymbolCommandSequences", (string)null);
                 });
 
             modelBuilder.Entity("TradingEngine.Domain.Entities.OrderDomain", b =>
@@ -380,6 +579,15 @@ namespace TradingEngine.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ReservedBalance")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TradingEngine.Infrastructure.Persistence.Outbox.ExecutionResultOutboxEntry", b =>
+                {
+                    b.HasOne("TradingEngine.Infrastructure.Persistence.Outbox.OrderCommandOutboxEntry", null)
+                        .WithOne()
+                        .HasForeignKey("TradingEngine.Infrastructure.Persistence.Outbox.ExecutionResultOutboxEntry", "CommandOutboxId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

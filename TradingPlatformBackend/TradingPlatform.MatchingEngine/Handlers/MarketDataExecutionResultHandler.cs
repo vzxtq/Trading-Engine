@@ -74,7 +74,7 @@ public class MarketDataExecutionResultHandler : IExecutionResultHandler
         }
         catch (Exception)
         {
-            // Swallow to avoid impacting the engine pipeline; log in real implementation.
+            //TODO: log
         }
     }
 }

@@ -46,5 +46,8 @@ public sealed class PositionConfiguration : IEntityTypeConfiguration<PositionDom
 
         builder.Property(p => p.CreatedAt).IsRequired();
         builder.Property(p => p.UpdatedAt);
+        builder.Property<byte[]>("RowVersion")
+            .IsRowVersion()
+            .IsRequired();
     }
 }

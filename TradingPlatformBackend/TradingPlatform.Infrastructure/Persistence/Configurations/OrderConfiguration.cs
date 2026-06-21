@@ -99,5 +99,8 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<OrderDomain>
 
         builder.Property(o => o.CreatedAt).IsRequired();
         builder.Property(o => o.UpdatedAt);
+        builder.Property<byte[]>("RowVersion")
+            .IsRowVersion()
+            .IsRequired();
     }
 }

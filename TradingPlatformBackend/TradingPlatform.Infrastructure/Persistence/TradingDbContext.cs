@@ -4,6 +4,7 @@ using TradingEngine.Domain.Common;
 using TradingEngine.Domain.Entities;
 using TradingEngine.Domain.Events;
 using TradingEngine.Infrastructure.Persistence.Configurations;
+using TradingEngine.Infrastructure.Persistence.Outbox;
 
 namespace TradingEngine.Infrastructure.Persistence
 {
@@ -30,6 +31,10 @@ namespace TradingEngine.Infrastructure.Persistence
         public DbSet<TradeDomain> Trades => Set<TradeDomain>();
         public DbSet<PositionDomain> Positions => Set<PositionDomain>();
         public DbSet<SymbolDomain> Symbols => Set<SymbolDomain>();
+        public DbSet<OrderCommandOutboxEntry> OrderCommandOutbox => Set<OrderCommandOutboxEntry>();
+        public DbSet<ExecutionResultOutboxEntry> ExecutionResultOutbox => Set<ExecutionResultOutboxEntry>();
+        public DbSet<ProcessedExecutionReceipt> ProcessedExecutionReceipts => Set<ProcessedExecutionReceipt>();
+        public DbSet<SymbolCommandSequence> SymbolCommandSequences => Set<SymbolCommandSequence>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -41,6 +46,10 @@ namespace TradingEngine.Infrastructure.Persistence
             modelBuilder.ApplyConfiguration(new TradeConfiguration());
             modelBuilder.ApplyConfiguration(new PositionConfiguration());
             modelBuilder.ApplyConfiguration(new SymbolConfiguration());
+            modelBuilder.ApplyConfiguration(new OrderCommandOutboxConfiguration());
+            modelBuilder.ApplyConfiguration(new ExecutionResultOutboxConfiguration());
+            modelBuilder.ApplyConfiguration(new ProcessedExecutionReceiptConfiguration());
+            modelBuilder.ApplyConfiguration(new SymbolCommandSequenceConfiguration());
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

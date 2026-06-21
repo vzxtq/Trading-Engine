@@ -1,7 +1,6 @@
-using System.Threading.Tasks;
 using TradingEngine.Domain.Enums;
-using TradingEngine.MatchingEngine.Models;
 using TradingEngine.Domain.ValueObjects;
+using TradingEngine.MatchingEngine.Models;
 
 namespace TradingEngine.MatchingEngine.Commands;
 
@@ -10,6 +9,9 @@ namespace TradingEngine.MatchingEngine.Commands;
 /// </summary>
 public abstract record MatchingEngineCommand
 {
+    public Guid CommandOutboxId { get; init; }
+    public bool IsDurable => CommandOutboxId != Guid.Empty;
+    public long SequenceId { get; init; }
     public required Symbol Symbol { get; init; }
     public required Guid SymbolId { get; init; }
 }
@@ -32,7 +34,7 @@ public sealed record CancelOrderCommand : MatchingEngineCommand
 }
 
 /// <summary>
-/// Internal command to capture a consistent snapshot of an order book.
+/// command to capture a consistent snapshot of an order book.
 /// Processed inside the shard worker thread to avoid locking.
 /// </summary>
 public sealed record SnapshotOrderBookCommand : MatchingEngineCommand

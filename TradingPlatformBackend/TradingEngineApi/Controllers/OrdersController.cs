@@ -6,6 +6,8 @@ using TradingEngineApi.Extensions;
 using TradingEngine.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using TradingEngine.Application.Features.Orders.Dtos;
+using TradingEngineApi.Common;
 
 namespace TradingEngine.Api.Controllers;
 
@@ -54,7 +56,13 @@ public class OrdersController : ApiController
         command.UserId = _userResolverService.GetUserId();
 
         var result = await _mediator.Send(command, ct);
-        return result.ToActionResult();
+        if (result.IsFailure)
+            return result.ToActionResult();
+
+        return Accepted(
+            ApiResponse<CancelOrderResponseDto>.SuccessResponse(
+                result.Value!,
+                "Cancellation queued"));
     }
 
     [HttpGet("{id:guid}")]

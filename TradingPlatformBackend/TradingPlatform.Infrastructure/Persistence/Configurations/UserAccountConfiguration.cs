@@ -65,5 +65,9 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccountDoma
 
         builder.Property(x => x.UpdatedAt)
                .HasColumnName("UpdatedAt");
+
+        builder.Property<byte[]>("RowVersion")
+            .IsRowVersion()
+            .IsRequired();
     }
 }
