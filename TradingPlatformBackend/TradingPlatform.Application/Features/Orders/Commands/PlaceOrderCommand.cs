@@ -91,7 +91,7 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
                 request.Side,
                 request.Type);
 
-            var result = await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 var account = await _accountRepository.GetByIdAsync(
                     userId,
@@ -143,8 +143,7 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
                         quantity.Value.ToEngineQuantity(),
                         request.Side,
                         request.Type,
-                        placementResult.EngineMaxTotalCost,
-                        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                        placementResult.EngineMaxTotalCost),
                     ct);
 
                 await _unitOfWork.CommitAsync(ct);
@@ -156,11 +155,6 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
                     Message = "Order queued for matching"
                 });
             }, cancellationToken);
-
-            if (result.IsFailure)
-                return result;
-
-            return result;
         }
         catch (Exception ex)
         {
@@ -168,3 +162,4 @@ public sealed class PlaceOrderCommandHandler : ICommandHandler<PlaceOrderCommand
         }
     }
 }
+

@@ -19,6 +19,8 @@ public sealed class ExecutionResultOutboxConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.ResultType).HasMaxLength(100).IsRequired();
         builder.Property(x => x.Payload).IsRequired();
         builder.Property(x => x.LastError).HasMaxLength(2000);
+        builder.Property(x => x.CreatedAt)
+            .HasDefaultValueSql("SYSUTCDATETIME()");
         builder.HasOne<OrderCommandOutboxEntry>()
             .WithOne()
             .HasForeignKey<ExecutionResultOutboxEntry>(x => x.CommandOutboxId)

@@ -36,7 +36,8 @@ public class EngineOrder
         long createdAt)
     {
         if (type == OrderType.Limit && price <= 0) throw new ArgumentOutOfRangeException(nameof(price));
-        if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
 
         Id = id;
         UserId = userId;
@@ -54,20 +55,12 @@ public class EngineOrder
 
     public void Fill(long quantity)
     {
-        if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
+
         if (quantity > RemainingQuantity)
             throw new InvalidOperationException("Cannot fill by more than remaining quantity");
 
         FilledQuantity += quantity;
-        RemainingQuantity -= quantity;
-    }
-
-    public void Reduce(long quantity)
-    {
-        if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
-        if (quantity > RemainingQuantity)
-            throw new InvalidOperationException("Cannot reduce by more than remaining quantity");
-
         RemainingQuantity -= quantity;
     }
 }

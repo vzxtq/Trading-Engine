@@ -24,7 +24,6 @@ public static class MatchingEngineDependencyInjection
         if (configure is not null)
             services.Configure(configure);
 
-        services.AddSingleton<IEngineTimeProvider, StopwatchEngineTimeProvider>();
         services.AddSingleton<IExecutionResultDispatcher, ExecutionResultDispatcher>();
         services.AddSingleton<MatchingEngineHost>();
         services.AddSingleton<IMatchingEngineQueue>(sp => sp.GetRequiredService<MatchingEngineHost>());

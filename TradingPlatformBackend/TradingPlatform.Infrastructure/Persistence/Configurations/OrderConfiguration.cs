@@ -97,7 +97,8 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<OrderDomain>
                .IsRequired()
                .HasDefaultValue(0m);
 
-        builder.Property(o => o.CreatedAt).IsRequired();
+        builder.Property(o => o.CreatedAt)
+            .HasDefaultValueSql("SYSUTCDATETIME()");
         builder.Property(o => o.UpdatedAt);
         builder.Property<byte[]>("RowVersion")
             .IsRowVersion()

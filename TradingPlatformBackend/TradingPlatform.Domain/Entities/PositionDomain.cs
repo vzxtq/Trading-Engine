@@ -35,8 +35,7 @@ public class PositionDomain : BaseEntity
             SymbolValue = symbolValue,
             Quantity = quantity,
             ReservedQuantity = new Quantity(0),
-            AverageCost = averageCost,
-            CreatedAt = DateTime.UtcNow
+            AverageCost = averageCost
         };
     }
 

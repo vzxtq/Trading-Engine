@@ -37,8 +37,7 @@ public sealed class OrderCommandOutboxEntry
                 : null,
             CommandType = commandType,
             Payload = payload,
-            Status = OrderCommandStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            Status = OrderCommandStatus.Pending
         };
     }
 

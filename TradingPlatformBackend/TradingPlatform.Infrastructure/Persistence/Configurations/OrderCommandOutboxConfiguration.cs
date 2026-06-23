@@ -28,6 +28,8 @@ public sealed class OrderCommandOutboxConfiguration : IEntityTypeConfiguration<O
         builder.Property(x => x.Status).HasConversion<string>();
         builder.Property(x => x.Payload).IsRequired();
         builder.Property(x => x.LastError).HasMaxLength(2000);
+        builder.Property(x => x.CreatedAt)
+            .HasDefaultValueSql("SYSUTCDATETIME()");
         builder.Property<byte[]>("RowVersion")
             .IsRowVersion()
             .IsRequired();

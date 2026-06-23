@@ -15,7 +15,7 @@ public sealed class DurableMatchingEngineTests
         await using var processor = new MatchingEngineProcessor();
         var command = CreateLimitOrder(sequenceId: 42);
 
-        var result = await processor.ProcessAsync(command, engineTimestamp: 100);
+        var result = await processor.ProcessAsync(command);
 
         result.SequenceId.Should().Be(42);
     }
@@ -29,15 +29,29 @@ public sealed class DurableMatchingEngineTests
         var first = CreateLimitOrder(sequenceId: 10, price: 150_0000);
         var second = CreateLimitOrder(sequenceId: 20, price: 149_0000);
 
-        await original.ProcessAsync(first, engineTimestamp: first.ReceivedAt);
-        await original.ProcessAsync(second, engineTimestamp: second.ReceivedAt);
+        await original.ProcessAsync(first);
+        await original.ProcessAsync(second);
 
-        await recovered.ProcessAsync(first, engineTimestamp: first.ReceivedAt);
-        await recovered.ProcessAsync(second, engineTimestamp: second.ReceivedAt);
+        await recovered.ProcessAsync(first);
+        await recovered.ProcessAsync(second);
 
         recovered.GetSnapshot(first.Symbol)
             .Should()
             .BeEquivalentTo(original.GetSnapshot(first.Symbol));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ShouldAllocateFallbackSequencePerSymbol()
+    {
+        await using var processor = new MatchingEngineProcessor();
+
+        var firstAapl = await processor.ProcessAsync(CreateLimitOrder(sequenceId: 0, symbol: "AAPL", receivedAt: 1));
+        var firstMsft = await processor.ProcessAsync(CreateLimitOrder(sequenceId: 0, symbol: "MSFT", receivedAt: 2));
+        var secondAapl = await processor.ProcessAsync(CreateLimitOrder(sequenceId: 0, symbol: "AAPL", receivedAt: 3, price: 151_0000));
+
+        firstAapl.SequenceId.Should().Be(1);
+        firstMsft.SequenceId.Should().Be(1);
+        secondAapl.SequenceId.Should().Be(2);
     }
 
     [Fact]
@@ -53,7 +67,9 @@ public sealed class DurableMatchingEngineTests
 
     private static AddOrderCommand CreateLimitOrder(
         long sequenceId,
-        long price = 150_0000)
+        long price = 150_0000,
+        string symbol = "AAPL",
+        long? receivedAt = null)
     {
         return new AddOrderCommand
         {
@@ -61,14 +77,24 @@ public sealed class DurableMatchingEngineTests
             SequenceId = sequenceId,
             OrderId = Guid.NewGuid(),
             UserId = Guid.NewGuid(),
-            Symbol = new Symbol("AAPL"),
-            SymbolId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Symbol = new Symbol(symbol),
+            SymbolId = GetSymbolId(symbol),
             Price = price,
             Quantity = 10_0000,
             Side = OrderSide.Sell,
             Type = OrderType.Limit,
             MaxTotalCost = 0,
-            ReceivedAt = sequenceId
+            ReceivedAt = receivedAt ?? sequenceId
+        };
+    }
+
+    private static Guid GetSymbolId(string symbol)
+    {
+        return symbol switch
+        {
+            "AAPL" => Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            "MSFT" => Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            _ => Guid.NewGuid()
         };
     }
 }

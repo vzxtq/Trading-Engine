@@ -33,8 +33,7 @@ public sealed class ExecutionResultOutboxEntry
             SequenceId = sequenceId,
             ResultType = resultType,
             Payload = payload,
-            Status = ExecutionResultOutboxStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            Status = ExecutionResultOutboxStatus.Pending
         };
     }
 

@@ -54,8 +54,7 @@ namespace TradingEngine.Domain.Entities
                 Type = type,
                 Status = OrderStatus.Open,
                 ReservedAmount = reservedAmount,
-                IdempotencyKey = idempotencyKey,
-                CreatedAt = DateTime.UtcNow
+                IdempotencyKey = idempotencyKey
             };
 
             order.RaiseDomainEvent(

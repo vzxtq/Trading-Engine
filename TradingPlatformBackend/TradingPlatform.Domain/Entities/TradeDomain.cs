@@ -21,34 +21,7 @@ public class TradeDomain : BaseEntity
     private TradeDomain()
     { }
 
-    /// <summary>
-    /// Creates a new executed trade.
-    /// </summary>
-    public static TradeDomain Create(
-        Guid buyOrderId,
-        Guid sellOrderId,
-        Guid buyerId,
-        Guid sellerId,
-        Guid symbolId,
-        Price price,
-        Quantity quantity)
-    {
-        return new TradeDomain
-        {
-            Id = Guid.NewGuid(),
-            BuyOrderId = buyOrderId,
-            SellOrderId = sellOrderId,
-            BuyerId = buyerId,
-            SellerId = sellerId,
-            SymbolId = symbolId,
-            Price = price,
-            Quantity = quantity,
-            ExecutedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
-        };
-    }
-
-    public static TradeDomain Create(
+       public static TradeDomain Create(
         Guid tradeId,
         Guid buyOrderId,
         Guid sellOrderId,
@@ -69,8 +42,7 @@ public class TradeDomain : BaseEntity
             SymbolId = symbolId,
             Price = price,
             Quantity = quantity,
-            ExecutedAt = executedAtUtc,
-            CreatedAt = executedAtUtc
+            ExecutedAt = executedAtUtc
         };
     }
 

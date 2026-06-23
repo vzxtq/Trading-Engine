@@ -65,8 +65,7 @@ public class UserAccountDomain : AggregateRoot
             initialBalance,
             Money.Zero(initialBalance.Currency))
         {
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            IsActive = true
         };
     }
 

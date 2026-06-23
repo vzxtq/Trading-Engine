@@ -204,5 +204,5 @@ tools/
 *.log
 *.user
 *.vs/
-GEMINI.md
+AGENTS.md
 *.lscache

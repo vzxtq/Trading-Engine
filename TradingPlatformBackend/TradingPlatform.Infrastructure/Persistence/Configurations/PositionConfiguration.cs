@@ -44,7 +44,8 @@ public sealed class PositionConfiguration : IEntityTypeConfiguration<PositionDom
                .HasPrecision(18, 8)
                .IsRequired();
 
-        builder.Property(p => p.CreatedAt).IsRequired();
+        builder.Property(p => p.CreatedAt)
+            .HasDefaultValueSql("SYSUTCDATETIME()");
         builder.Property(p => p.UpdatedAt);
         builder.Property<byte[]>("RowVersion")
             .IsRowVersion()

@@ -11,6 +11,7 @@ public class MatchingEngineCancellationTests
 {
     private static readonly Symbol TestSymbol = new("AAPL");
     private static readonly Guid TestSymbolId = Guid.NewGuid();
+    private const long CancellationReceivedAt = 1_750_000_000_000;
 
     [Fact]
     public void CancellationBeforeCross_ShouldRemoveOrderBeforeLaterExecution()
@@ -23,21 +24,21 @@ public class MatchingEngineCancellationTests
             Guid.NewGuid(),
             OrderSide.Sell,
             price: 150_0000,
-            quantity: 10_0000), sequenceId: 1, engineTimestamp: 1);
+            quantity: 10_0000), sequenceId: 1);
 
         var cancellation = engine.Process(
             CreateCancellation(sellerOrderId),
-            sequenceId: 2,
-            engineTimestamp: 2);
+            sequenceId: 2);
 
         var laterBuy = engine.Process(CreateLimitOrder(
             Guid.NewGuid(),
             Guid.NewGuid(),
             OrderSide.Buy,
             price: 150_0000,
-            quantity: 10_0000), sequenceId: 3, engineTimestamp: 3);
+            quantity: 10_0000), sequenceId: 3);
 
         cancellation.Should().BeOfType<ExecutionResult.Accepted>();
+        cancellation.EngineTimestamp.Should().Be(CancellationReceivedAt);
         ((ExecutionResult.Accepted)laterBuy).Trades.Should().BeEmpty();
         engine.Snapshot().Asks.Should().BeEmpty();
     }
@@ -53,19 +54,18 @@ public class MatchingEngineCancellationTests
             Guid.NewGuid(),
             OrderSide.Sell,
             price: 150_0000,
-            quantity: 10_0000), sequenceId: 1, engineTimestamp: 1);
+            quantity: 10_0000), sequenceId: 1);
 
         var execution = engine.Process(CreateLimitOrder(
             Guid.NewGuid(),
             Guid.NewGuid(),
             OrderSide.Buy,
             price: 150_0000,
-            quantity: 10_0000), sequenceId: 2, engineTimestamp: 2);
+            quantity: 10_0000), sequenceId: 2);
 
         var lateCancellation = engine.Process(
             CreateCancellation(sellerOrderId),
-            sequenceId: 3,
-            engineTimestamp: 3);
+            sequenceId: 3);
 
         ((ExecutionResult.Accepted)execution).Trades.Should().ContainSingle();
         lateCancellation.Should().BeOfType<ExecutionResult.Rejected>()
@@ -100,7 +100,8 @@ public class MatchingEngineCancellationTests
         {
             OrderId = orderId,
             Symbol = TestSymbol,
-            SymbolId = TestSymbolId
+            SymbolId = TestSymbolId,
+            ReceivedAt = CancellationReceivedAt
         };
     }
 }

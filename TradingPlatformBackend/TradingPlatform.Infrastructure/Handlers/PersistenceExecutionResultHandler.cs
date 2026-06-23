@@ -262,15 +262,13 @@ public sealed class PersistenceExecutionResultHandler
                     .Where(t => t.BuyOrderId == order.Id)
                     .Sum(t => t.Price.ToDomainPrice() * t.Quantity.ToDomainQuantity());
 
-                var releaseAmount = Math.Max(
-                    0,
-                    order.ReservedAmount - spentInPreviousBatches - spentInThisBatch);
+                var unspentReservedAmount = order.ReservedAmount - spentInPreviousBatches - spentInThisBatch;
 
-                if (releaseAmount > 0)
+                if (unspentReservedAmount > 0)
                 {
                     accounts[order.UserId].ReleaseReservedFunds(
                         new Money(
-                            releaseAmount,
+                            unspentReservedAmount,
                             accounts[order.UserId].Balance.Currency));
                 }
             }
@@ -280,9 +278,7 @@ public sealed class PersistenceExecutionResultHandler
                      && order.Side == OrderSide.Sell)
             {
                 FindPosition(order.UserId, order.Symbol.Name)
-                    ?.ReleaseReserved(
-                        new Quantity(
-                            stateChange.RemainingQuantity.ToDomainQuantity()));
+                    ?.ReleaseReserved(new Quantity(stateChange.RemainingQuantity.ToDomainQuantity()));
             }
         }
     }
@@ -293,7 +289,8 @@ public sealed class PersistenceExecutionResultHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var delayMilliseconds = attempt * 25 + Random.Shared.Next(5, 25);
+        var delayMilliseconds = (attempt * 25) + Random.Shared.Next(5, 25);
+
         _logger.LogWarning(
             exception,
             "Concurrency conflict settling symbol {SymbolId}, sequence {SequenceId}. Retrying attempt {Attempt}",

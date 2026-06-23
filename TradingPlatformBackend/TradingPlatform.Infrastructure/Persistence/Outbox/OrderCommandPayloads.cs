@@ -11,8 +11,7 @@ public sealed record AddOrderCommandPayload(
     long Quantity,
     OrderSide Side,
     OrderType Type,
-    long MaxTotalCost,
-    long ReceivedAt);
+    long MaxTotalCost);
 
 public sealed record CancelOrderCommandPayload(
     Guid OrderId,

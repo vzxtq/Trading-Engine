@@ -9,18 +9,14 @@ public sealed class MatchingEngineProcessor : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, SymbolEngineProcessor> _engines = new();
 
-    private long _fallbackSequenceId;
-
-    public async ValueTask<ExecutionResult> ProcessAsync(MatchingEngineCommand command, long engineTimestamp)
+    public async ValueTask<ExecutionResult> ProcessAsync(MatchingEngineCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(command.Symbol);
 
-        var sequenceId = command.SequenceId > 0
-            ? command.SequenceId
-            : Interlocked.Increment(ref _fallbackSequenceId);
         var engine = GetOrCreateEngine(command.Symbol);
-        return await engine.EnqueueAsync(command, sequenceId, engineTimestamp);
+
+        return await engine.EnqueueAsync(command);
     }
 
     public OrderBookSnapshot GetSnapshot(Symbol symbol)
@@ -49,3 +45,4 @@ public sealed class MatchingEngineProcessor : IAsyncDisposable
         _engines.Clear();
     }
 }
+

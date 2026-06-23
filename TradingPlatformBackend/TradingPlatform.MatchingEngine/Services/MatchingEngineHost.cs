@@ -38,7 +38,6 @@ public sealed class MatchingEngineHost :
         IOptions<MatchingEngineOptions> options,
         IExecutionResultDispatcher dispatcher,
         IExecutionResultStore resultStore,
-        IEngineTimeProvider timeProvider,
         ILoggerFactory loggerFactory,
         ILogger<MatchingEngineHost> logger)
     {
@@ -62,7 +61,6 @@ public sealed class MatchingEngineHost :
                 processor,
                 dispatcher,
                 resultStore,
-                timeProvider,
                 channel.Reader,
                 workerLogger);
 
@@ -104,7 +102,13 @@ public sealed class MatchingEngineHost :
         ArgumentNullException.ThrowIfNull(symbol);
 
         var tcs = new TaskCompletionSource<OrderBookSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var cmd = new SnapshotOrderBookCommand { Symbol = symbol, SymbolId = Guid.Empty, Completion = tcs };
+        var cmd = new SnapshotOrderBookCommand
+        {
+            Symbol = symbol,
+            SymbolId = Guid.Empty,
+            ReceivedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Completion = tcs
+        };
 
         await GetWriter(symbol.Value)
             .WriteAsync(new MatchingEngineQueueItem(cmd), cancellationToken)
@@ -133,11 +137,8 @@ public sealed class MatchingEngineHost :
         {
             ct.ThrowIfCancellationRequested();
             var shard = _matchingEngineShards[GetShardIndex(command.Symbol.Value)];
-            var timestamp = command is AddOrderCommand addOrder
-                ? addOrder.ReceivedAt
-                : 0;
 
-            await shard.Processor.ProcessAsync(command, timestamp);
+            await shard.Processor.ProcessAsync(command);
         }
     }
 

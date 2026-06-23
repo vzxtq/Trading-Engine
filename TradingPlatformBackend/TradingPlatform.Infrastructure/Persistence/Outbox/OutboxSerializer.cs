@@ -122,7 +122,7 @@ internal static class OutboxSerializer
             Side = payload.Side,
             Type = payload.Type,
             MaxTotalCost = payload.MaxTotalCost,
-            ReceivedAt = payload.ReceivedAt
+            ReceivedAt = ToUnixTimeMilliseconds(entry.CreatedAt)
         };
     }
 
@@ -138,8 +138,16 @@ internal static class OutboxSerializer
             SequenceId = GetSequenceId(entry),
             OrderId = payload.OrderId,
             SymbolId = payload.SymbolId,
-            Symbol = new Symbol(payload.Symbol)
+            Symbol = new Symbol(payload.Symbol),
+            ReceivedAt = ToUnixTimeMilliseconds(entry.CreatedAt)
         };
+    }
+
+    private static long ToUnixTimeMilliseconds(DateTime value)
+    {
+        return new DateTimeOffset(
+            DateTime.SpecifyKind(value, DateTimeKind.Utc))
+            .ToUnixTimeMilliseconds();
     }
 
     private static long GetSequenceId(OrderCommandOutboxEntry entry)

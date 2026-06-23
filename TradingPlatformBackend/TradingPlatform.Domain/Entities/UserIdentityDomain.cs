@@ -16,7 +16,6 @@ public sealed class UserIdentityDomain : BaseEntity
         Id = Guid.NewGuid();
         UserId = userId;
         PasswordHash = passwordHash;
-        CreatedAt = DateTime.UtcNow;
     }
 
     public void UpdateRefreshToken(string token, DateTime expiry)

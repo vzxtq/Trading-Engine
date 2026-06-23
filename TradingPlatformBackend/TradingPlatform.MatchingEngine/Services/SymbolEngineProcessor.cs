@@ -10,6 +10,7 @@ public sealed class SymbolEngineProcessor : IAsyncDisposable
     private readonly Channel<WorkItem> _mailbox;
     private readonly Task _processTask;
     private readonly CancellationTokenSource _cts = new();
+    private long _fallbackSequenceId;
 
     public SymbolEngineProcessor(string symbol)
     {
@@ -23,10 +24,14 @@ public sealed class SymbolEngineProcessor : IAsyncDisposable
         _processTask = Task.Run(ProcessLoopAsync);
     }
 
-    public async ValueTask<ExecutionResult> EnqueueAsync(MatchingEngineCommand command, long sequenceId, long timestamp)
+    public async ValueTask<ExecutionResult> EnqueueAsync(MatchingEngineCommand command)
     {
+        var sequenceId = command.SequenceId > 0
+            ? command.SequenceId
+            : Interlocked.Increment(ref _fallbackSequenceId);
+
         var tcs = new TaskCompletionSource<ExecutionResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var workItem = new WorkItem(command, sequenceId, timestamp, tcs);
+        var workItem = new WorkItem(command, sequenceId, tcs);
 
         await _mailbox.Writer.WriteAsync(workItem, _cts.Token);
 
@@ -46,7 +51,7 @@ public sealed class SymbolEngineProcessor : IAsyncDisposable
             {
                 try
                 {
-                    var result = _engine.Process(item.Command, item.SequenceId, item.Timestamp);
+                    var result = _engine.Process(item.Command, item.SequenceId);
                     item.Tcs.SetResult(result);
                 }
                 catch (Exception ex)
@@ -78,6 +83,5 @@ public sealed class SymbolEngineProcessor : IAsyncDisposable
     private record WorkItem(
         MatchingEngineCommand Command,
         long SequenceId,
-        long Timestamp,
         TaskCompletionSource<ExecutionResult> Tcs);
 }

@@ -41,7 +41,7 @@ public class MarketDataExecutionResultHandler : IExecutionResultHandler
                         accepted.Symbol.Value,
                         trade.Price.ToDomainPrice(),
                         trade.Quantity.ToDomainQuantity(),
-                        accepted.EngineTimestamp);
+                        trade.ExecutedAt);
                     
                     await _notifier.NotifyTradeExecutedAsync(notification, cancellationToken);
                 }

@@ -11,5 +11,4 @@ public sealed record AddOrderCommandOutboxDto(
     long Quantity,
     OrderSide Side,
     OrderType Type,
-    long MaxTotalCost,
-    long ReceivedAt);
+    long MaxTotalCost);

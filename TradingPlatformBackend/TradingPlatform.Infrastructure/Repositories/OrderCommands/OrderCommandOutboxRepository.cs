@@ -30,8 +30,7 @@ public sealed class OrderCommandOutboxRepository : IOrderCommandOutboxRepository
             command.Quantity,
             command.Side,
             command.Type,
-            command.MaxTotalCost,
-            command.ReceivedAt);
+            command.MaxTotalCost);
 
         var entry = OrderCommandOutboxEntry.Create(
             command.SymbolId,

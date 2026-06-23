@@ -16,24 +16,24 @@ public sealed class SymbolEngine
         _orderBook = new OrderBook(symbol);
     }
 
-    public ExecutionResult Process(MatchingEngineCommand command, long sequenceId, long engineTimestamp)
+    public ExecutionResult Process(MatchingEngineCommand command, long sequenceId)
     {
         return command switch
         {
-            AddOrderCommand cmd => ProcessAddOrder(cmd, sequenceId, engineTimestamp),
-            CancelOrderCommand cmd => ProcessCancelOrder(cmd, sequenceId, engineTimestamp),
+            AddOrderCommand cmd => ProcessAddOrder(cmd, sequenceId),
+            CancelOrderCommand cmd => ProcessCancelOrder(cmd, sequenceId),
             _ => new ExecutionResult.Rejected
             {
                 Symbol = command.Symbol,
                 SymbolId = command.SymbolId,
                 SequenceId = sequenceId,
-                EngineTimestamp = engineTimestamp,
+                EngineTimestamp = command.ReceivedAt,
                 Reason = "Unknown command"
             }
         };
     }
 
-    private ExecutionResult ProcessAddOrder(AddOrderCommand command, long sequenceId, long engineTimestamp)
+    private ExecutionResult.Accepted ProcessAddOrder(AddOrderCommand command, long sequenceId)
     {
         var taker = new EngineOrder(
             command.OrderId,
@@ -50,7 +50,7 @@ public sealed class SymbolEngine
         var trades = new List<ExecutedTrade>();
         var stateChanges = new List<OrderStateChange>();
 
-        MatchOrder(taker, engineTimestamp, trades, stateChanges);
+        MatchOrder(taker, command.ReceivedAt, trades, stateChanges);
 
         var takerStatus = taker.IsFullyMatched
             ? OrderStatus.Filled
@@ -79,14 +79,14 @@ public sealed class SymbolEngine
             Symbol = command.Symbol,
             SymbolId = command.SymbolId,
             SequenceId = sequenceId,
-            EngineTimestamp = engineTimestamp,
+            EngineTimestamp = command.ReceivedAt,
             Trades = trades,
             StateChanges = stateChanges,
             OrderBookChanges = orderBookChanges
         };
     }
 
-    private ExecutionResult ProcessCancelOrder(CancelOrderCommand command, long sequenceId, long engineTimestamp)
+    private ExecutionResult ProcessCancelOrder(CancelOrderCommand command, long sequenceId)
     {
         var order = _orderBook.FindOrder(command.OrderId);
         if (order is null)
@@ -95,7 +95,7 @@ public sealed class SymbolEngine
                 Symbol = command.Symbol,
                 SymbolId = command.SymbolId,
                 SequenceId = sequenceId,
-                EngineTimestamp = engineTimestamp,
+                EngineTimestamp = command.ReceivedAt,
                 Reason = "Order not found"
             };
 
@@ -105,10 +105,10 @@ public sealed class SymbolEngine
         var remaining = isBuy
             ? _orderBook.GetBidOrders().Where(o => o.Price == order.Price).Sum(o => o.RemainingQuantity)
             : _orderBook.GetAskOrders().Where(o => o.Price == order.Price).Sum(o => o.RemainingQuantity);
-            
+
         var orderBookChanges = new List<OrderBookStateChangeDto>
         {
-            new OrderBookStateChangeDto(order.Price, remaining, isBuy)
+            new(order.Price, remaining, isBuy)
         };
 
         var stateChange = new OrderStateChange(
@@ -123,7 +123,7 @@ public sealed class SymbolEngine
             Symbol = command.Symbol,
             SymbolId = command.SymbolId,
             SequenceId = sequenceId,
-            EngineTimestamp = engineTimestamp,
+            EngineTimestamp = command.ReceivedAt,
             Trades = [],
             StateChanges = [stateChange],
             OrderBookChanges = orderBookChanges

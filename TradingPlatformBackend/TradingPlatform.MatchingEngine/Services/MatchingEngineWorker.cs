@@ -1,7 +1,7 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
-using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Commands;
+using TradingEngine.MatchingEngine.Interfaces;
 using TradingEngine.MatchingEngine.Models;
 
 namespace TradingEngine.MatchingEngine.Services;
@@ -11,7 +11,6 @@ internal sealed class MatchingEngineWorker
     private readonly MatchingEngineProcessor _engine;
     private readonly IExecutionResultDispatcher _dispatcher;
     private readonly IExecutionResultStore _resultStore;
-    private readonly IEngineTimeProvider _timeProvider;
     private readonly ChannelReader<MatchingEngineQueueItem> _commandReader;
     private readonly ILogger<MatchingEngineWorker> _logger;
 
@@ -19,14 +18,12 @@ internal sealed class MatchingEngineWorker
         MatchingEngineProcessor engine,
         IExecutionResultDispatcher dispatcher,
         IExecutionResultStore resultStore,
-        IEngineTimeProvider timeProvider,
         ChannelReader<MatchingEngineQueueItem> commandReader,
         ILogger<MatchingEngineWorker> logger)
     {
         _engine = engine;
         _dispatcher = dispatcher;
         _resultStore = resultStore;
-        _timeProvider = timeProvider;
         _commandReader = commandReader;
         _logger = logger;
     }
@@ -53,8 +50,7 @@ internal sealed class MatchingEngineWorker
                     break;
 
                 default:
-                    var engineTimestamp = _timeProvider.GetTimestamp();
-                    var result = await _engine.ProcessAsync(command, engineTimestamp);
+                    var result = await _engine.ProcessAsync(command);
 
                     if (command.IsDurable)
                     {
