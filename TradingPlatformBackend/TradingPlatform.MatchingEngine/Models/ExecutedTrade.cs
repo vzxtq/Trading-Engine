@@ -1,4 +1,4 @@
-using TradingEngine.Domain.ValueObjects;
+using TradingEngine.Domain.Enums;
 
 namespace TradingEngine.MatchingEngine.Models;
 
@@ -15,4 +15,5 @@ public sealed record ExecutedTrade(
     Guid SymbolId,
     long Price,
     long Quantity,
-    long ExecutedAt);
+    long ExecutedAt,
+    OrderSide AggressorSide);

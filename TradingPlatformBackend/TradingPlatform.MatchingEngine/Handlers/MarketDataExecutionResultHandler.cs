@@ -38,9 +38,11 @@ public class MarketDataExecutionResultHandler : IExecutionResultHandler
                 foreach (var trade in accepted.Trades)
                 {
                     var notification = new TradeNotification(
+                        trade.TradeId,
                         accepted.Symbol.Value,
                         trade.Price.ToDomainPrice(),
                         trade.Quantity.ToDomainQuantity(),
+                        trade.AggressorSide,
                         trade.ExecutedAt);
                     
                     await _notifier.NotifyTradeExecutedAsync(notification, cancellationToken);

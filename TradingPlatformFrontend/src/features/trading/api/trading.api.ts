@@ -107,16 +107,9 @@ export const useUserOrders = (queryParams: UserOrderQueryParams) => {
       const parseResult = OrderListResponseDtoSchema.safeParse(response.data.data)
       if (!parseResult.success) {
         console.error('OrderList schema mismatch:', parseResult.error)
-        return {
-          orders: { items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
-          summary: { totalOrders: 0, openOrders: 0, filledOrders: 0, cancelledOrders: 0, totalVolume: 0, fillRate: 0 }
-        }
+        throw new Error('Order list response schema mismatch')
       }
-      const parsedData = parseResult.data
-      return parsedData || { 
-        orders: { items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
-        summary: { totalOrders: 0, openOrders: 0, filledOrders: 0, cancelledOrders: 0, totalVolume: 0, fillRate: 0 }
-      }
+      return parseResult.data
     },
   })
 }
@@ -161,20 +154,23 @@ export interface OrderBookEntry {
   quantity: number
 }
 
-export interface BinanceOrderBookDto {
+export interface MarketOrderBookDto {
   symbol: string
   bids: OrderBookEntry[]
   asks: OrderBookEntry[]
 }
 
-export const useBinanceOrderBook = (symbol: string, limit = 20) => {
+export const useMarketOrderBook = (symbol: string, limit = 20) => {
   return useQuery({
-    queryKey: ['binance-orderbook', symbol, limit],
+    queryKey: ['market-orderbook', symbol, limit],
     queryFn: async () => {
-      const response = await api.get<ApiResponse<BinanceOrderBookDto>>(
+      const response = await api.get<ApiResponse<MarketOrderBookDto>>(
         `/marketdata/orderbook?symbol=${symbol}&limit=${limit}`
       )
-      return response.data.data || { symbol, bids: [], asks: [] }
+      if (!response.data.data) {
+        throw new Error('Market order book response is missing data')
+      }
+      return response.data.data
     },
     enabled: !!symbol,
     refetchInterval: 2000,

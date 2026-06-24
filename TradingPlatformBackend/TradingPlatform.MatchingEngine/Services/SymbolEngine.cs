@@ -223,7 +223,8 @@ public sealed class SymbolEngine
                 SymbolId: taker.SymbolId,
                 Price: maker.Price,
                 Quantity: quantity,
-                ExecutedAt: engineTimestamp));
+                ExecutedAt: engineTimestamp,
+                AggressorSide: taker.Side));
 
             var makerStatus = maker.IsFullyMatched ? OrderStatus.Filled : OrderStatus.PartiallyFilled;
 

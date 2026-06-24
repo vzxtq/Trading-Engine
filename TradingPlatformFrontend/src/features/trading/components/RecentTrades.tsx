@@ -26,8 +26,8 @@ export const RecentTrades: React.FC<RecentTradesProps> = ({ symbol }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        {filteredTrades.map((trade, i) => (
-          <div key={`${trade.tradeId}-${i}`} className="flex justify-between items-center px-2 h-6 hover:bg-accent transition-colors">
+        {filteredTrades.map((trade) => (
+          <div key={trade.tradeId} className="flex justify-between items-center px-2 h-6 hover:bg-accent transition-colors">
             <span
               className={cn(
                 'w-1/3 text-left font-normal tabular-nums',

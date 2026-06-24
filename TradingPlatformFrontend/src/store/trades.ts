@@ -9,7 +9,12 @@ type TradesState = {
 
 export const useTradesStore = create<TradesState>(set => ({
   recent: [],
-  addTrade: (trade) => set(state => ({ recent: [trade, ...state.recent].slice(0, 50) })),
+  addTrade: (trade) => set(state => {
+    if (state.recent.some(existing => existing.tradeId === trade.tradeId)) {
+      return state
+    }
+
+    return { recent: [trade, ...state.recent].slice(0, 50) }
+  }),
   clear: () => set({ recent: [] }),
 }))
-

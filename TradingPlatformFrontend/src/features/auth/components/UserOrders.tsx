@@ -3,6 +3,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { useUserOrders, useCancelOrder } from '@/features/trading/api/trading.api'
 import { OrderSide } from '@/types/enums/order-side.enum'
 import { OrderStatus, OrderStatusLabels } from '@/types/enums/order-status.enum'
+import { OrderTypeLabels } from '@/types/enums/order-type.enum'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -91,7 +92,7 @@ export const UserOrders = () => {
     return params
   }, [currentPage, pageSize, statusFilter, sideFilter, sortBy, sortOrder, debouncedSearch])
 
-  const { data: responseData, isLoading } = useUserOrders(queryParams)
+  const { data: responseData, isLoading, isError } = useUserOrders(queryParams)
   const pagedOrders = responseData?.orders
   const orders = pagedOrders?.items || []
   const cancelOrder = useCancelOrder()
@@ -276,6 +277,10 @@ export const UserOrders = () => {
               <tr>
                 <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground animate-pulse">Loading orders...</td>
               </tr>
+            ) : isError ? (
+              <tr>
+                <td colSpan={9} className="px-4 py-12 text-center text-destructive">No orders data</td>
+              </tr>
             ) : orders.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">No orders found</td>
@@ -303,7 +308,7 @@ export const UserOrders = () => {
                       </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-center">
-                      <span className="text-xs font-semibold text-muted-foreground">Limit</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{OrderTypeLabels[order.type]}</span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-center">
                       <span className={cn(numericClass, 'text-sm')}>{formatUsd(order.price.amount)}</span>

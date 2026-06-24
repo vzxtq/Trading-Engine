@@ -3,9 +3,11 @@ using TradingEngine.Domain.Enums;
 namespace TradingEngine.MatchingEngine.Models.Notifications;
 
 public record TradeNotification(
+    Guid TradeId,
     string Symbol,
     decimal Price,
     decimal Quantity,
+    OrderSide AggressorSide,
     long ExecutedAt);
 
 public record OrderBookNotification(

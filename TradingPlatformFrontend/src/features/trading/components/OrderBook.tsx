@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { cn, formatNumber, numericClass } from '@/lib/utils'
-import { useBinanceOrderBook } from '../api/trading.api'
+import { useMarketOrderBook } from '../api/trading.api'
 
 interface OrderBookProps {
   symbol: string
@@ -17,7 +17,7 @@ const SkeletonRow: React.FC<{ side: 'bid' | 'ask' }> = ({ side }) => (
 )
 
 export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
-  const { data, isLoading } = useBinanceOrderBook(symbol)
+  const { data, isLoading, isError } = useMarketOrderBook(symbol)
 
   const bids = useMemo(
     () => [...(data?.bids ?? [])].sort((a, b) => b.price - a.price).slice(0, ROWS),
@@ -58,7 +58,13 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
       <div className="flex flex-col">
         {/* Asks — lowest ask nearest spread */}
         <div className="flex flex-col">
-          {isLoading
+          {isError
+            ? (
+              <div className="py-4 flex items-center justify-center text-xs font-semibold text-destructive">
+                No order book data
+              </div>
+            )
+            : isLoading
             ? Array.from({ length: ROWS }).map((_, i) => <SkeletonRow key={i} side="ask" />)
             : asks.length === 0
             ? (
@@ -108,7 +114,13 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol }) => {
 
         {/* Bids — highest bid at top */}
         <div className="flex flex-col">
-          {isLoading
+          {isError
+            ? (
+              <div className="py-4 flex items-center justify-center text-xs font-semibold text-destructive">
+                No order book data
+              </div>
+            )
+            : isLoading
             ? Array.from({ length: ROWS }).map((_, i) => <SkeletonRow key={i} side="bid" />)
             : bids.length === 0
             ? (

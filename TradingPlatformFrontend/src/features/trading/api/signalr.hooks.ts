@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { MarketDataConnection, OrderConnection } from '@/services/signalr'
 import { useTradesStore } from '@/store/trades'
 import { useOrderBookStore } from '@/store/orderBook'
-import type { TradeNotification, OrderBookNotification, OrderStatusNotification } from '@/types/notifications'
+import type { OrderBookNotification, OrderStatusNotification } from '@/types/notifications'
+import { TradeNotificationSchema } from '@/types/notifications'
 import { queryClient } from '@/lib/queryClient'
-import { OrderSide } from '@/types/enums/order-side.enum'
 import { HubConnectionState } from '@microsoft/signalr'
 import { useAuthStore } from '@/store/auth'
 
@@ -15,14 +15,21 @@ export function useMarketDataSignalR(symbol: string) {
   useEffect(() => {
     const market = new MarketDataConnection()
 
-    const handleTrade = (notification: TradeNotification) => {
+    const handleTrade = (notification: unknown) => {
+      const parseResult = TradeNotificationSchema.safeParse(notification)
+      if (!parseResult.success) {
+        console.error('Trade notification schema mismatch:', parseResult.error)
+        return
+      }
+
+      const trade = parseResult.data
       addTrade({
-        tradeId: Math.random().toString(),
-        symbol: notification.symbol,
-        price: notification.price,
-        quantity: notification.quantity,
-        side: OrderSide.Buy, // Backend missing side in notification per contract
-        executedAt: notification.executedAt,
+        tradeId: trade.tradeId,
+        symbol: trade.symbol,
+        price: trade.price,
+        quantity: trade.quantity,
+        side: trade.aggressorSide,
+        executedAt: trade.executedAt,
       })
     }
 
