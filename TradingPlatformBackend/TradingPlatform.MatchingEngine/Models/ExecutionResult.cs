@@ -19,6 +19,7 @@ public abstract record ExecutionResult
         public required IReadOnlyList<ExecutedTrade> Trades { get; init; }
         public required IReadOnlyList<OrderStateChange> StateChanges { get; init; }
         public required IReadOnlyList<OrderBookStateChangeDto> OrderBookChanges { get; init; }
+        public IReadOnlyList<SelfTradePreventionEvent> SelfTradePreventions { get; init; } = [];
 
         public bool HasTrades => Trades.Count > 0;
     }

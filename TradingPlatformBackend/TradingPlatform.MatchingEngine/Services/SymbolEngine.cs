@@ -49,18 +49,19 @@ public sealed class SymbolEngine
 
         var trades = new List<ExecutedTrade>();
         var stateChanges = new List<OrderStateChange>();
+        var selfTradePreventions = new List<SelfTradePreventionEvent>();
 
-        MatchOrder(taker, command.ReceivedAt, trades, stateChanges);
+        var takerCancelledBySelfTradePrevention = MatchOrder(
+            taker,
+            command.ReceivedAt,
+            trades,
+            stateChanges,
+            selfTradePreventions);
 
-        var takerStatus = taker.IsFullyMatched
-            ? OrderStatus.Filled
-            : taker.Type == OrderType.Market
-                ? taker.FilledQuantity > 0
-                    ? OrderStatus.PartiallyFilledCancelled
-                    : OrderStatus.Cancelled
-                : trades.Count > 0
-                    ? OrderStatus.PartiallyFilled
-                    : OrderStatus.Open;
+        var takerStatus = GetTakerStatus(
+            taker,
+            takerCancelledBySelfTradePrevention,
+            trades.Count > 0);
 
         stateChanges.Add(new OrderStateChange(
             OrderId: taker.Id,
@@ -69,7 +70,7 @@ public sealed class SymbolEngine
             RemainingQuantity: taker.RemainingQuantity,
             Status: takerStatus));
 
-        if (!taker.IsFullyMatched && taker.Type == OrderType.Limit)
+        if (!takerCancelledBySelfTradePrevention && !taker.IsFullyMatched && taker.Type == OrderType.Limit)
             _orderBook.AddOrder(taker);
 
         var orderBookChanges = ComputeOrderBookChanges(trades, taker);
@@ -82,7 +83,8 @@ public sealed class SymbolEngine
             EngineTimestamp = command.ReceivedAt,
             Trades = trades,
             StateChanges = stateChanges,
-            OrderBookChanges = orderBookChanges
+            OrderBookChanges = orderBookChanges,
+            SelfTradePreventions = selfTradePreventions
         };
     }
 
@@ -130,11 +132,42 @@ public sealed class SymbolEngine
         };
     }
 
-    private void MatchOrder(
+    private static OrderStatus GetTakerStatus(
+        EngineOrder taker,
+        bool cancelledBySelfTradePrevention,
+        bool hasTrades)
+    {
+        if (cancelledBySelfTradePrevention)
+        {
+            if (taker.FilledQuantity > 0)
+                return OrderStatus.PartiallyFilledCancelled;
+
+            return OrderStatus.Cancelled;
+        }
+
+        if (taker.IsFullyMatched)
+            return OrderStatus.Filled;
+
+        if (taker.Type == OrderType.Market)
+        {
+            if (taker.FilledQuantity > 0)
+                return OrderStatus.PartiallyFilledCancelled;
+
+            return OrderStatus.Cancelled;
+        }
+
+        if (hasTrades)
+            return OrderStatus.PartiallyFilled;
+
+        return OrderStatus.Open;
+    }
+
+    private bool MatchOrder(
         EngineOrder taker,
         long engineTimestamp,
         List<ExecutedTrade> trades,
-        List<OrderStateChange> stateChanges)
+        List<OrderStateChange> stateChanges,
+        List<SelfTradePreventionEvent> selfTradePreventions)
     {
         long takerCostSoFar = 0;
         var makers = taker.Side == OrderSide.Buy
@@ -148,6 +181,18 @@ public sealed class SymbolEngine
 
             if (!IsPriceCompatible(taker, maker))
                 break;
+
+            if (maker.UserId == taker.UserId)
+            {
+                selfTradePreventions.Add(new SelfTradePreventionEvent(
+                    taker.Id,
+                    maker.Id,
+                    taker.UserId,
+                    SelfTradePreventionPolicy.CancelTaker,
+                    "Self-trade prevention: cancel-taker because maker and taker belong to the same user."));
+
+                return true;
+            }
 
             var quantity = Math.Min(taker.RemainingQuantity, maker.RemainingQuantity);
 
@@ -192,6 +237,8 @@ public sealed class SymbolEngine
             if (maker.IsFullyMatched)
                 _orderBook.RemoveOrder(maker.Id);
         }
+
+        return false;
     }
 
     private static bool IsPriceCompatible(EngineOrder taker, EngineOrder maker)
