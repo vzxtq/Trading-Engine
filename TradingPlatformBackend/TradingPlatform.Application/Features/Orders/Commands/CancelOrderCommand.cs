@@ -5,6 +5,7 @@ using TradingEngine.Application.Interfaces.Orders;
 using TradingEngine.Application.Interfaces;
 using TradingEngine.Application.Interfaces.OrderCommands;
 using TradingEngine.Domain.Enums;
+using TradingEngine.Domain.ValueObjects;
 
 namespace TradingEngine.Application.Features.Orders.Commands;
 
@@ -51,6 +52,16 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
             return Result<CancelOrderResponseDto>.Failure($"Cannot cancel order with status {order.Status}");
         }
 
+        Symbol symbol;
+        try
+        {
+            symbol = new Symbol(order.Symbol.Name);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result<CancelOrderResponseDto>.Failure($"Order symbol is invalid: {ex.Message}");
+        }
+
         var alreadyPending = await _commandOutbox.HasPendingCancelAsync(order.Id, cancellationToken);
         if (alreadyPending)
             return Result<CancelOrderResponseDto>.Success(new CancelOrderResponseDto(order.Id));
@@ -62,7 +73,7 @@ public sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderComma
                 await _commandOutbox.AddCancelAsync(
                     order.Id,
                     order.SymbolId,
-                    order.Symbol.Name,
+                    symbol.Value,
                     ct);
                 await _unitOfWork.CommitAsync(ct);
                 return true;

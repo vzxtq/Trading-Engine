@@ -65,6 +65,8 @@ public class OrdersListTests : IClassFixture<TradingPlatformFactory>
         content.Data.Summary.OpenOrders.Should().Be(3);
         content.Data.Summary.FilledOrders.Should().Be(0);
         content.Data.Summary.TotalVolume.Should().Be(0); // Nothing filled yet
+        content.Data.Summary.FillRate.Should().Be(0);
+        content.Data.Summary.CancelledRate.Should().Be(0);
     }
 
     [Fact]

@@ -6,4 +6,5 @@ public record OrderSummaryDto(
     int FilledOrders,
     int CancelledOrders,
     decimal TotalVolume,
-    double FillRate);
+    double FillRate,
+    double CancelledRate);

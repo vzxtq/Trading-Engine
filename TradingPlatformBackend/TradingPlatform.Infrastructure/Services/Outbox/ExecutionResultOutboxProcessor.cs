@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TradingEngine.Application.Interfaces;
 using TradingEngine.Infrastructure.Handlers;
 using TradingEngine.Infrastructure.Persistence;
 using TradingEngine.Infrastructure.Persistence.Outbox;
@@ -11,7 +12,8 @@ namespace TradingEngine.Infrastructure.Services.Outbox;
 
 public sealed class ExecutionResultOutboxProcessor : BackgroundService
 {
-    private static readonly TimeSpan EmptyQueueDelay = TimeSpan.FromMilliseconds(100);
+    private const int MaxProcessingAttempts = 3;
+    private static readonly TimeSpan EmptyQueueDelay = TimeSpan.FromSeconds(5);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly PersistenceExecutionResultHandler _persistenceHandler;
     private readonly IExecutionResultDispatcher _dispatcher;
@@ -75,8 +77,35 @@ public sealed class ExecutionResultOutboxProcessor : BackgroundService
                 ex,
                 "Failed to process execution result outbox entry {OutboxId}",
                 outboxId);
+
+            await RecordFailureAsync(outboxId, ex.Message, cancellationToken);
             await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
             return false;
         }
+    }
+
+    private async Task RecordFailureAsync(
+        Guid outboxId,
+        string error,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var dbContext = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+        var entry = await dbContext.ExecutionResultOutbox
+            .FirstOrDefaultAsync(x => x.Id == outboxId, cancellationToken);
+
+        if (entry is null)
+            return;
+
+        entry.RecordFailure(error);
+
+        if (entry.AttemptCount >= MaxProcessingAttempts)
+            entry.MarkFailed(error);
+
+        await unitOfWork.CommitAsync(cancellationToken);
     }
 }

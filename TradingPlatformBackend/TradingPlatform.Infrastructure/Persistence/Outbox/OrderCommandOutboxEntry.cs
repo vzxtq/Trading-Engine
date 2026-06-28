@@ -75,6 +75,13 @@ public sealed class OrderCommandOutboxEntry
         DispatchedAt = null;
         LastError = error;
     }
+
+    public void MarkFailed(string error)
+    {
+        Status = OrderCommandStatus.Failed;
+        ActiveCancellationOrderId = null;
+        LastError = error;
+    }
 }
 
 public enum OrderCommandType

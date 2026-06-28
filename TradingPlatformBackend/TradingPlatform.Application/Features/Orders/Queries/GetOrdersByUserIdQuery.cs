@@ -39,7 +39,8 @@ public class GetOrdersQueryHandler : IRequestHandler<GetOrdersByUserIdQuery, Res
             summary.FilledOrders,
             summary.CancelledOrders,
             summary.TotalVolume,
-            summary.FillRate);
+            summary.FillRate,
+            summary.CancelledRate);
 
         return Result<OrderListResponseDto>.Success(new OrderListResponseDto(orders, summaryDto, request.GetSortingOptions()));
     }

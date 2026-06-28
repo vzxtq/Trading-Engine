@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { CURRENCY_LABELS } from "./constants"
 import { Currency } from "@/types/enums"
 
 export function cn(...inputs: ClassValue[]) {
@@ -17,10 +16,8 @@ export const dangerActionClass =
 export const dangerMenuItemClass =
   'text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-300'
 
-/** Display style for numeric values: regular weight, muted gray, tabular alignment. */
 export const numericClass = 'font-normal text-muted-foreground tabular-nums'
 
-/** e.g. 71500.00 — dot decimal, no thousands separator, fixed fraction digits. */
 export function formatNumber(value: number, fractionDigits = 2): string {
   if (!Number.isFinite(value)) {
     return (0).toFixed(fractionDigits)
@@ -36,7 +33,7 @@ export function formatUsd(amount: number, fractionDigits = 2): string {
 }
 
 export function formatCurrency(amount: number, currency: Currency, fractionDigits = 2): string {
-  const label = CURRENCY_LABELS[currency] || ''
+  const label = Currency[currency]
   const formatted = formatNumber(amount, fractionDigits)
   return label ? `${formatted} ${label}` : formatted
 }

@@ -27,15 +27,15 @@ export const PriceSchema = z.object({
 export type Price = z.infer<typeof PriceSchema>
 
 export const OrderDtoSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
+  id: z.uuid(),
+  userId: z.uuid(),
   symbolName: z.string(),
   price: z.number().nullable(),
   quantity: z.number(),
   remainingQuantity: z.number(),
   filledQuantity: z.number().optional(),
-  side: z.nativeEnum(OrderSide),
-  status: z.nativeEnum(OrderStatus),
+  side: z.enum(OrderSide),
+  status: z.enum(OrderStatus),
   createdAt: z.number(),
   updatedAt: z.number().nullable(),
 })
@@ -58,17 +58,17 @@ export const MoneyDtoSchema = z.object({
 export type MoneyDto = z.infer<typeof MoneyDtoSchema>
 
 export const OrderListDtoSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
+  id: z.uuid(),
+  userId: z.uuid(),
   symbolName: z.string(),
   currency: z.string(),
-  side: z.nativeEnum(OrderSide),
-  type: z.nativeEnum(OrderType),
+  side: z.enum(OrderSide),
+  type: z.enum(OrderType),
   price: MoneyDtoSchema,
   quantity: z.number(),
   filledQuantity: z.number(),
   remainingQuantity: z.number(),
-  status: z.nativeEnum(OrderStatus),
+  status: z.enum(OrderStatus),
   createdAt: z.number(),
   updatedAt: z.number().nullable(),
 })
@@ -96,6 +96,7 @@ export const OrderSummaryDtoSchema = z.object({
   cancelledOrders: z.number(),
   totalVolume: z.number(),
   fillRate: z.number(),
+  cancelledRate: z.number(),
 })
 
 export type OrderSummaryDto = z.infer<typeof OrderSummaryDtoSchema>

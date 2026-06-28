@@ -21,6 +21,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { cn, dangerActionClass, formatNumber, formatUsd, numericClass } from '@/lib/utils'
+import { ORDER_SUMMARY_EMPTY_VALUE } from '@/lib/constants'
 
 const SIDE_FILTER_ITEMS = {
   All: 'All sides',
@@ -103,14 +104,14 @@ export const UserOrders = () => {
     // We now use the exact summary provided by the backend!
     const summary = responseData?.summary
     
-    const total = summary?.totalOrders || 0
-    const open = summary?.openOrders || 0
-    const filled = summary?.filledOrders || 0
-    const cancelled = summary?.cancelledOrders || 0
-    const volume = summary?.totalVolume || 0
+    const total = summary?.totalOrders ?? ORDER_SUMMARY_EMPTY_VALUE
+    const open = summary?.openOrders ?? ORDER_SUMMARY_EMPTY_VALUE
+    const filled = summary?.filledOrders ?? ORDER_SUMMARY_EMPTY_VALUE
+    const cancelled = summary?.cancelledOrders ?? ORDER_SUMMARY_EMPTY_VALUE
+    const volume = summary?.totalVolume ?? ORDER_SUMMARY_EMPTY_VALUE
     
-    const fillRate = summary?.fillRate ?? (total > 0 ? (filled / total) * 100 : 0)
-    const cancelledRate = total > 0 ? (cancelled / total) * 100 : 0
+    const fillRate = summary?.fillRate ?? ORDER_SUMMARY_EMPTY_VALUE
+    const cancelledRate = summary?.cancelledRate ?? ORDER_SUMMARY_EMPTY_VALUE
 
     return { total, open, filled, cancelled, volume, fillRate, cancelledRate }
   }, [responseData])
@@ -318,7 +319,7 @@ export const UserOrders = () => {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-center">
                       <span className={cn(numericClass, 'text-sm')}>
-                        {formatNumber(order.filledQuantity ?? 0)}
+                        {formatNumber(order.filledQuantity)}
                       </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-center">

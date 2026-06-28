@@ -11,7 +11,8 @@ namespace TradingEngine.Infrastructure.Services.Outbox;
 
 public sealed class OrderCommandOutboxProcessor : BackgroundService
 {
-    private static readonly TimeSpan EmptyQueueDelay = TimeSpan.FromMilliseconds(100);
+    private const int MaxDispatchAttempts = 3;
+    private static readonly TimeSpan EmptyQueueDelay = TimeSpan.FromSeconds(5);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMatchingEngineQueue _matchingEngineQueue;
     private readonly IMatchingEngineReadiness _readiness;
@@ -95,7 +96,11 @@ public sealed class OrderCommandOutboxProcessor : BackgroundService
         }
         catch (Exception ex)
         {
-            entry.MarkPending(ex.Message);
+            if (entry.AttemptCount >= MaxDispatchAttempts)
+                entry.MarkFailed(ex.Message);
+            else
+                entry.MarkPending(ex.Message);
+
             await unitOfWork.CommitAsync(cancellationToken);
 
             _logger.LogError(

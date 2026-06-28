@@ -7,5 +7,9 @@ public record OrderSummary(
     int CancelledOrders,
     decimal TotalVolume)
 {
-    public double FillRate => TotalOrders == 0 ? 0 : (double)FilledOrders / TotalOrders * 100;
+    private const double EmptyRate = 0;
+    private const double PercentageMultiplier = 100;
+
+    public double FillRate => TotalOrders == 0 ? EmptyRate : (double)FilledOrders / TotalOrders * PercentageMultiplier;
+    public double CancelledRate => TotalOrders == 0 ? EmptyRate : (double)CancelledOrders / TotalOrders * PercentageMultiplier;
 }

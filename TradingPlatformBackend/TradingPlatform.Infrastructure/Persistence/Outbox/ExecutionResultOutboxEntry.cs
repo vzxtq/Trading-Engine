@@ -51,6 +51,12 @@ public sealed class ExecutionResultOutboxEntry
         LastError = error;
         AttemptCount++;
     }
+
+    public void MarkFailed(string error)
+    {
+        Status = ExecutionResultOutboxStatus.Failed;
+        LastError = error;
+    }
 }
 
 public enum ExecutionResultOutboxStatus
